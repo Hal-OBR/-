@@ -231,6 +231,7 @@ class SupabaseMachirogeStore {
       points: checkpoint.points,
       lat: checkpoint.lat,
       lng: checkpoint.lng,
+      reviewId: checkpoint.review_id,
     }));
   }
 
@@ -246,6 +247,7 @@ class SupabaseMachirogeStore {
       points: checkpoint.points,
       lat: checkpoint.lat,
       lng: checkpoint.lng,
+      review_id: checkpoint.reviewId || null,
       status: "active",
     });
     if (error) throw error;

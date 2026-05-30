@@ -855,6 +855,60 @@ textarea:focus,
   margin-bottom: 20px;
 }
 
+.review-candidate-list {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.review-candidate-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.review-candidate-card img {
+  display: block;
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+.review-candidate-body {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.review-candidate-body p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.candidate-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.candidate-controls label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.candidate-controls select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+}
+
 .checkpoint-card {
   overflow: hidden;
   border: 1px solid var(--line);

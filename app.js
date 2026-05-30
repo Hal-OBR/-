@@ -114,6 +114,8 @@ const els = {
   reportList: document.querySelector("#report-list"),
   checkpointCount: document.querySelector("#checkpoint-count"),
   checkpointList: document.querySelector("#checkpoint-list"),
+  reviewCandidateCount: document.querySelector("#review-candidate-count"),
+  reviewCandidateList: document.querySelector("#review-candidate-list"),
   locationStatus: document.querySelector("#location-status"),
   locationRequestButton: document.querySelector("#location-request-button"),
   checkinButton: document.querySelector("#checkin-button"),
@@ -525,8 +527,14 @@ async function readAdminCheckpoints() {
 async function renderAdmin() {
   const reports = await readReports();
   const adminCheckpoints = await readAdminCheckpoints();
+  const reviewCandidates = await readPublicReviews();
+  const availableReviewCandidates = reviewCandidates.filter(
+    (review) => !adminCheckpoints.some((checkpoint) => checkpoint.reviewId && review.id && checkpoint.reviewId === review.id),
+  );
   els.reportCount.textContent = String(reports.length);
   els.checkpointCount.textContent = String(adminCheckpoints.length);
+  els.reviewCandidateCount.textContent = String(availableReviewCandidates.length);
+  renderReviewCandidates(availableReviewCandidates);
   renderAdminCheckpoints(adminCheckpoints);
   if (reports.length === 0) {
     els.reportList.innerHTML = `<p class="empty">現在、確認待ちの通報はありません。</p>`;
@@ -567,6 +575,118 @@ async function renderAdmin() {
   }
   lucide.createIcons();
   showView(els.adminView);
+}
+
+function renderReviewCandidates(reviewCandidates) {
+  if (reviewCandidates.length === 0) {
+    els.reviewCandidateList.innerHTML = `<p class="empty">まだ候補にできる口コミがありません。</p>`;
+    return;
+  }
+
+  els.reviewCandidateList.innerHTML = reviewCandidates
+    .map(
+      (review, index) => `
+        <article class="review-candidate-card">
+          <img src="${review.image}" alt="${escapeHtml(review.placeName || review.checkpoint)}の口コミ写真" />
+          <div class="review-candidate-body">
+            <div>
+              <strong>${escapeHtml(review.catchCopy || makeCatchCopy(review.checkpoint))}</strong>
+              <p>${escapeHtml(review.prefecture)} / ${escapeHtml(review.placeName || review.checkpoint)}</p>
+              <p>${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)} ${escapeHtml(review.comment)}</p>
+            </div>
+            <div class="candidate-controls">
+              <label>
+                難易度
+                <select data-candidate-difficulty>
+                  <option value="1">★</option>
+                  <option value="2" selected>★★</option>
+                  <option value="3">★★★</option>
+                </select>
+              </label>
+              <label>
+                範囲
+                <select data-candidate-radius>
+                  <option value="300">300m</option>
+                  <option value="500" selected>500m</option>
+                  <option value="900">900m</option>
+                </select>
+              </label>
+            </div>
+            <button class="primary-button" type="button" data-review-candidate-index="${index}">
+              <i data-lucide="map-plus"></i>
+              チェックポイントにする
+            </button>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+
+  els.reviewCandidateList.querySelectorAll("[data-review-candidate-index]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const card = button.closest(".review-candidate-card");
+      adoptReviewAsCheckpoint(reviewCandidates[Number(button.dataset.reviewCandidateIndex)], {
+        difficulty: Number(card.querySelector("[data-candidate-difficulty]").value),
+        radius: Number(card.querySelector("[data-candidate-radius]").value),
+      });
+    });
+  });
+}
+
+async function adoptReviewAsCheckpoint(review, options) {
+  const location = resolveReviewLocation(review);
+  if (!location) {
+    showToast("位置が分からない口コミです。現在地を取得してから採用してください");
+    return;
+  }
+
+  const checkpoint = {
+    reviewId: review.id,
+    name: review.placeName || review.checkpoint,
+    prefecture: review.prefecture || "未設定",
+    placeName: review.placeName || review.checkpoint,
+    image: review.image,
+    difficulty: options.difficulty,
+    radius: options.radius,
+    points: 50 + options.difficulty * 20,
+    lat: location.lat,
+    lng: location.lng,
+  };
+
+  try {
+    await window.machirogeStore.addCheckpoint(checkpoint);
+    checkpoints.unshift({
+      ...checkpoint,
+      id: `review-${review.id || Date.now()}`,
+      status: "active",
+    });
+    await renderAdmin();
+    showToast("口コミ写真をチェックポイントにしました");
+  } catch {
+    showToast("チェックポイント化に失敗しました");
+  }
+}
+
+function resolveReviewLocation(review) {
+  if (Number.isFinite(review.lat) && Number.isFinite(review.lng)) {
+    return { lat: review.lat, lng: review.lng };
+  }
+
+  const matchedCheckpoint = checkpoints.find(
+    (checkpoint) =>
+      checkpoint.name === review.checkpoint ||
+      checkpoint.placeName === review.placeName ||
+      checkpoint.placeName === review.checkpoint,
+  );
+  if (matchedCheckpoint) {
+    return { lat: matchedCheckpoint.lat, lng: matchedCheckpoint.lng };
+  }
+
+  if (!state.demoLocation) {
+    return { lat: state.userLocation.lat, lng: state.userLocation.lng };
+  }
+
+  return null;
 }
 
 function renderAdminCheckpoints(adminCheckpoints) {
@@ -711,6 +831,8 @@ async function submitReview(skip = false) {
       rating: state.rating,
       comment: els.commentInput.value.trim() || "口コミを投稿しました",
       image: previewSrc || point.image,
+      lat: point.lat,
+      lng: point.lng,
     };
     state.reviews.push(review);
     try {
