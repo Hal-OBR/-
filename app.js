@@ -961,7 +961,7 @@ function showToast(message) {
 }
 
 function escapeHtml(value) {
-  return value.replace(/[&<>"']/g, (char) => {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => {
     const map = {
       "&": "&amp;",
       "<": "&lt;",
