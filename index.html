@@ -17,7 +17,7 @@
       integrity="sha256-p4NxAoJBhIINfQ0twYn4tc4Q0q8ztdRloM5A6J/6zFw="
       crossorigin=""
     />
-    <link rel="stylesheet" href="./styles.css?v=checkpoint-manage-1" />
+    <link rel="stylesheet" href="./styles.css?v=admin-login-fix-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -400,7 +400,7 @@
     </dialog>
 
     <dialog class="admin-dialog" id="admin-dialog" aria-labelledby="admin-dialog-title">
-      <form method="dialog" id="admin-login-form">
+      <form id="admin-login-form">
         <header>
           <div>
             <p class="eyebrow">運営ログイン</p>
@@ -415,7 +415,7 @@
           <input id="admin-password" type="password" autocomplete="current-password" />
         </label>
         <p class="form-error" id="admin-error" aria-live="polite"></p>
-        <button class="primary-button" type="submit">
+        <button class="primary-button" id="admin-login-submit" type="button">
           <i data-lucide="log-in"></i>
           確認画面へ
         </button>
@@ -431,8 +431,8 @@
     ></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./config.js?v=checkpoint-manage-1"></script>
-    <script src="./data-store.js?v=checkpoint-manage-1"></script>
-    <script src="./app.js?v=checkpoint-manage-1"></script>
+    <script src="./config.js?v=admin-login-fix-1"></script>
+    <script src="./data-store.js?v=admin-login-fix-1"></script>
+    <script src="./app.js?v=admin-login-fix-1"></script>
   </body>
 </html>

@@ -105,6 +105,7 @@ const els = {
   adminButton: document.querySelector("#admin-button"),
   adminDialog: document.querySelector("#admin-dialog"),
   adminLoginForm: document.querySelector("#admin-login-form"),
+  adminLoginSubmit: document.querySelector("#admin-login-submit"),
   adminPassword: document.querySelector("#admin-password"),
   adminError: document.querySelector("#admin-error"),
   closeAdminDialog: document.querySelector("#close-admin-dialog"),
@@ -610,7 +611,7 @@ function renderAdminCheckpoints(adminCheckpoints) {
 
   els.checkpointList.querySelectorAll("[data-checkpoint-save]").forEach((button) => {
     button.addEventListener("click", () => {
-      const select = els.checkpointList.querySelector(`[data-checkpoint-difficulty="${CSS.escape(button.dataset.checkpointSave)}"]`);
+      const select = button.closest(".checkpoint-card").querySelector("[data-checkpoint-difficulty]");
       updateCheckpoint(button.dataset.checkpointSave, { difficulty: Number(select.value) }, "難易度を更新しました");
     });
   });
@@ -666,7 +667,18 @@ function openAdminLogin() {
 }
 
 function closeAdminLogin() {
-  els.adminDialog.close();
+  if (els.adminDialog.open) els.adminDialog.close();
+}
+
+async function submitAdminLogin() {
+  if (els.adminPassword.value !== ADMIN_PASSWORD) {
+    els.adminError.textContent = "パスワードが違います";
+    els.adminPassword.select();
+    return;
+  }
+
+  closeAdminLogin();
+  await renderAdmin();
 }
 
 function resetReviewForm() {
@@ -971,14 +983,9 @@ els.adminButton.addEventListener("click", openAdminLogin);
 els.closeAdminDialog.addEventListener("click", closeAdminLogin);
 els.adminLoginForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  if (els.adminPassword.value === ADMIN_PASSWORD) {
-    closeAdminLogin();
-    renderAdmin();
-  } else {
-    els.adminError.textContent = "パスワードが違います";
-    els.adminPassword.select();
-  }
+  submitAdminLogin();
 });
+els.adminLoginSubmit.addEventListener("click", submitAdminLogin);
 els.backToPlay.addEventListener("click", () => {
   showView(els.playView);
   setTimeout(() => state.map?.invalidateSize(), 80);
