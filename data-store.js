@@ -63,7 +63,7 @@ class LocalMachirogeStore {
   }
 
   async listCheckpoints() {
-    return this.#read(this.checkpointKey);
+    return this.#read(this.checkpointKey).filter((checkpoint) => (checkpoint.status || "active") === "active");
   }
 
   async addCheckpoint(checkpoint) {
@@ -73,7 +73,20 @@ class LocalMachirogeStore {
       ...checkpoint,
       image: imageUrl,
       id: crypto.randomUUID?.() || String(Date.now()),
+      status: "active",
       createdAt: new Date().toISOString(),
+    });
+    localStorage.setItem(this.checkpointKey, JSON.stringify(checkpoints));
+  }
+
+  async updateCheckpoint(checkpointId, patch) {
+    const checkpoints = this.#read(this.checkpointKey).map((checkpoint) => {
+      if (checkpoint.id !== checkpointId) return checkpoint;
+      return {
+        ...checkpoint,
+        ...patch,
+        updatedAt: new Date().toISOString(),
+      };
     });
     localStorage.setItem(this.checkpointKey, JSON.stringify(checkpoints));
   }
@@ -235,6 +248,19 @@ class SupabaseMachirogeStore {
       lng: checkpoint.lng,
       status: "active",
     });
+    if (error) throw error;
+  }
+
+  async updateCheckpoint(checkpointId, patch) {
+    const updates = {};
+    if (patch.difficulty !== undefined) {
+      updates.difficulty = patch.difficulty;
+      updates.points = 50 + Number(patch.difficulty) * 20;
+    }
+    if (patch.radius !== undefined) updates.radius_m = patch.radius;
+    if (patch.status !== undefined) updates.status = patch.status;
+
+    const { error } = await this.client.from("checkpoints").update(updates).eq("id", checkpointId);
     if (error) throw error;
   }
 

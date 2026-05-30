@@ -17,7 +17,7 @@
       integrity="sha256-p4NxAoJBhIINfQ0twYn4tc4Q0q8ztdRloM5A6J/6zFw="
       crossorigin=""
     />
-    <link rel="stylesheet" href="./styles.css?v=distance-precision-1" />
+    <link rel="stylesheet" href="./styles.css?v=checkpoint-manage-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -288,8 +288,16 @@
             <span>確認待ち</span>
             <strong id="report-count">0</strong>
           </div>
+          <div>
+            <span>チェックポイント</span>
+            <strong id="checkpoint-count">0</strong>
+          </div>
         </section>
 
+        <h3 class="admin-section-title">チェックポイント管理</h3>
+        <div id="checkpoint-list" class="checkpoint-list"></div>
+
+        <h3 class="admin-section-title">通報一覧</h3>
         <div id="report-list" class="report-list"></div>
       </section>
 
@@ -423,8 +431,8 @@
     ></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./config.js?v=distance-precision-1"></script>
-    <script src="./data-store.js?v=distance-precision-1"></script>
-    <script src="./app.js?v=distance-precision-1"></script>
+    <script src="./config.js?v=checkpoint-manage-1"></script>
+    <script src="./data-store.js?v=checkpoint-manage-1"></script>
+    <script src="./app.js?v=checkpoint-manage-1"></script>
   </body>
 </html>

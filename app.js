@@ -111,6 +111,8 @@ const els = {
   backToPlay: document.querySelector("#back-to-play"),
   reportCount: document.querySelector("#report-count"),
   reportList: document.querySelector("#report-list"),
+  checkpointCount: document.querySelector("#checkpoint-count"),
+  checkpointList: document.querySelector("#checkpoint-list"),
   locationStatus: document.querySelector("#location-status"),
   locationRequestButton: document.querySelector("#location-request-button"),
   checkinButton: document.querySelector("#checkin-button"),
@@ -510,9 +512,21 @@ async function readReports() {
   }
 }
 
+async function readAdminCheckpoints() {
+  try {
+    return await window.machirogeStore.listCheckpoints();
+  } catch {
+    showToast("チェックポイント一覧の読み込みに失敗しました");
+    return [];
+  }
+}
+
 async function renderAdmin() {
   const reports = await readReports();
+  const adminCheckpoints = await readAdminCheckpoints();
   els.reportCount.textContent = String(reports.length);
+  els.checkpointCount.textContent = String(adminCheckpoints.length);
+  renderAdminCheckpoints(adminCheckpoints);
   if (reports.length === 0) {
     els.reportList.innerHTML = `<p class="empty">現在、確認待ちの通報はありません。</p>`;
   } else {
@@ -552,6 +566,80 @@ async function renderAdmin() {
   }
   lucide.createIcons();
   showView(els.adminView);
+}
+
+function renderAdminCheckpoints(adminCheckpoints) {
+  if (adminCheckpoints.length === 0) {
+    els.checkpointList.innerHTML = `<p class="empty">まだチェックポイントがありません。</p>`;
+    return;
+  }
+
+  els.checkpointList.innerHTML = adminCheckpoints
+    .map(
+      (checkpoint) => `
+        <article class="checkpoint-card">
+          <img src="${checkpoint.image}" alt="${escapeHtml(checkpoint.name)}の写真" />
+          <div class="checkpoint-card-body">
+            <div>
+              <strong>${escapeHtml(checkpoint.placeName || checkpoint.name)}</strong>
+              <p>${escapeHtml(checkpoint.prefecture)} / 範囲 ${escapeHtml(checkpoint.radius)}m</p>
+            </div>
+            <label>
+              難易度
+              <select data-checkpoint-difficulty="${escapeHtml(checkpoint.id)}">
+                <option value="1" ${checkpoint.difficulty === 1 ? "selected" : ""}>★</option>
+                <option value="2" ${checkpoint.difficulty === 2 ? "selected" : ""}>★★</option>
+                <option value="3" ${checkpoint.difficulty === 3 ? "selected" : ""}>★★★</option>
+              </select>
+            </label>
+            <div class="checkpoint-actions">
+              <button class="secondary-button" type="button" data-checkpoint-save="${escapeHtml(checkpoint.id)}">
+                <i data-lucide="save"></i>
+                保存
+              </button>
+              <button class="primary-button danger-button" type="button" data-checkpoint-hide="${escapeHtml(checkpoint.id)}">
+                <i data-lucide="eye-off"></i>
+                非表示
+              </button>
+            </div>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+
+  els.checkpointList.querySelectorAll("[data-checkpoint-save]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const select = els.checkpointList.querySelector(`[data-checkpoint-difficulty="${CSS.escape(button.dataset.checkpointSave)}"]`);
+      updateCheckpoint(button.dataset.checkpointSave, { difficulty: Number(select.value) }, "難易度を更新しました");
+    });
+  });
+  els.checkpointList.querySelectorAll("[data-checkpoint-hide]").forEach((button) => {
+    button.addEventListener("click", () => {
+      updateCheckpoint(button.dataset.checkpointHide, { status: "inactive" }, "チェックポイントを非表示にしました");
+    });
+  });
+}
+
+async function updateCheckpoint(checkpointId, patch, successMessage) {
+  try {
+    await window.machirogeStore.updateCheckpoint(checkpointId, patch);
+    if (patch.status === "inactive") {
+      const index = checkpoints.findIndex((checkpoint) => checkpoint.id === checkpointId);
+      if (index >= 0) checkpoints.splice(index, 1);
+      if (state.currentIndex >= checkpoints.length) state.currentIndex = 0;
+    } else if (patch.difficulty !== undefined) {
+      const checkpoint = checkpoints.find((item) => item.id === checkpointId);
+      if (checkpoint) {
+        checkpoint.difficulty = patch.difficulty;
+        checkpoint.points = 50 + Number(patch.difficulty) * 20;
+      }
+    }
+    await renderAdmin();
+    showToast(successMessage);
+  } catch {
+    showToast("チェックポイントの更新に失敗しました");
+  }
 }
 
 async function updateReportStatus(reportId, status) {

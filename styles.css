@@ -849,6 +849,67 @@ textarea:focus,
   gap: 12px;
 }
 
+.checkpoint-list {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.checkpoint-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.checkpoint-card img {
+  display: block;
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+.checkpoint-card-body {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.checkpoint-card-body p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.checkpoint-card-body label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.checkpoint-card-body select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+}
+
+.checkpoint-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.danger-button {
+  background: #b42318;
+}
+
+.danger-button:hover {
+  background: #912018;
+}
+
 .report-card {
   overflow: hidden;
   border: 1px solid var(--line);
