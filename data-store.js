@@ -3,6 +3,7 @@ class LocalMachirogeStore {
     this.reviewKey = "machirogePublicReviews";
     this.reportKey = "machirogeReports";
     this.scoreKey = "machirogeScores";
+    this.checkpointKey = "machirogeCheckpoints";
     this.userKey = "machirogeAnonymousUserId";
     this.userId = this.#getOrCreateUserId();
   }
@@ -59,6 +60,20 @@ class LocalMachirogeStore {
 
   async listScores() {
     return this.#read(this.scoreKey);
+  }
+
+  async listCheckpoints() {
+    return this.#read(this.checkpointKey);
+  }
+
+  async addCheckpoint(checkpoint) {
+    const checkpoints = this.#read(this.checkpointKey);
+    checkpoints.unshift({
+      ...checkpoint,
+      id: crypto.randomUUID?.() || String(Date.now()),
+      createdAt: new Date().toISOString(),
+    });
+    localStorage.setItem(this.checkpointKey, JSON.stringify(checkpoints));
   }
 
   #read(key) {
@@ -177,6 +192,43 @@ class SupabaseMachirogeStore {
       photoCount: score.photo_count,
       createdAt: score.created_at,
     }));
+  }
+
+  async listCheckpoints() {
+    const { data, error } = await this.client
+      .from("checkpoints")
+      .select("*")
+      .eq("status", "active")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data.map((checkpoint) => ({
+      id: checkpoint.id,
+      name: checkpoint.checkpoint_name,
+      prefecture: checkpoint.prefecture,
+      placeName: checkpoint.place_name,
+      image: checkpoint.image_url,
+      difficulty: checkpoint.difficulty,
+      radius: checkpoint.radius_m,
+      points: checkpoint.points,
+      lat: checkpoint.lat,
+      lng: checkpoint.lng,
+    }));
+  }
+
+  async addCheckpoint(checkpoint) {
+    const { error } = await this.client.from("checkpoints").insert({
+      checkpoint_name: checkpoint.name,
+      prefecture: checkpoint.prefecture,
+      place_name: checkpoint.placeName,
+      image_url: checkpoint.image,
+      difficulty: checkpoint.difficulty,
+      radius_m: checkpoint.radius,
+      points: checkpoint.points,
+      lat: checkpoint.lat,
+      lng: checkpoint.lng,
+      status: "active",
+    });
+    if (error) throw error;
   }
 
   async #uploadImageIfNeeded(image) {

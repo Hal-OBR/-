@@ -815,6 +815,17 @@ textarea:focus,
   margin-bottom: 14px;
 }
 
+.admin-tools {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.admin-section-title {
+  margin: 0 0 10px;
+}
+
 .admin-summary > div {
   padding: 12px;
   border: 1px solid var(--line);

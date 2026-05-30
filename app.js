@@ -94,6 +94,7 @@ const els = {
   resultView: document.querySelector("#result-view"),
   reviewsView: document.querySelector("#reviews-view"),
   adminView: document.querySelector("#admin-view"),
+  checkpointAdminView: document.querySelector("#checkpoint-admin-view"),
   photo: document.querySelector("#checkpoint-photo"),
   timer: document.querySelector("#timer"),
   difficulty: document.querySelector("#difficulty"),
@@ -150,6 +151,17 @@ const els = {
   homeClearCount: document.querySelector("#home-clear-count"),
   homeScoreTotal: document.querySelector("#home-score-total"),
   homePhotoCount: document.querySelector("#home-photo-count"),
+  checkpointBack: document.querySelector("#checkpoint-back"),
+  checkpointForm: document.querySelector("#checkpoint-form"),
+  checkpointPrefecture: document.querySelector("#checkpoint-prefecture"),
+  checkpointPlace: document.querySelector("#checkpoint-place"),
+  checkpointImage: document.querySelector("#checkpoint-image"),
+  checkpointDifficulty: document.querySelector("#checkpoint-difficulty"),
+  checkpointRadius: document.querySelector("#checkpoint-radius"),
+  useCurrentLocation: document.querySelector("#use-current-location"),
+  checkpointLocationStatus: document.querySelector("#checkpoint-location-status"),
+  adminTestMode: document.querySelector("#admin-test-mode"),
+  adminCheckpointCreate: document.querySelector("#admin-checkpoint-create"),
 };
 
 function currentCheckpoint() {
@@ -157,8 +169,8 @@ function currentCheckpoint() {
 }
 
 function showView(view) {
-  [els.homeView, els.playView, els.reviewView, els.resultView, els.reviewsView, els.adminView].forEach((screen) =>
-    screen.classList.remove("active"),
+  [els.homeView, els.playView, els.reviewView, els.resultView, els.reviewsView, els.adminView, els.checkpointAdminView].forEach(
+    (screen) => screen.classList.remove("active"),
   );
   view.classList.add("active");
 }
@@ -209,6 +221,19 @@ async function saveRunScoreToHome() {
   } catch {
     const percentile = calculateDemoPercentile();
     els.homeResultCopy.textContent = `スコア保存に失敗しました。デモ集計では上位${percentile}%です。`;
+  }
+}
+
+async function loadSavedCheckpoints() {
+  try {
+    const saved = await window.machirogeStore.listCheckpoints();
+    saved.forEach((checkpoint) => {
+      if (!checkpoints.some((existing) => existing.id === checkpoint.id)) {
+        checkpoints.unshift(checkpoint);
+      }
+    });
+  } catch {
+    showToast("チェックポイントの読み込みに失敗しました");
   }
 }
 
@@ -357,6 +382,35 @@ function refreshCheckpoint() {
   state.currentIndex = selectNextCheckpointIndex();
   renderCheckpoint();
   showToast("次の候補に切り替えました");
+}
+
+function startTestMode() {
+  if (els.mainMenuDialog.open) closeMainMenu();
+  if (!state.demoLocation) {
+    addTestCheckpointFromLocation();
+    showPlay();
+    showToast("現在地をテスト用チェックポイントにしました");
+    return;
+  }
+  showPlay();
+  showToast("位置情報を許可すると現在地でテストできます");
+}
+
+function addTestCheckpointFromLocation() {
+  const testCheckpoint = {
+    id: `test-${Date.now()}`,
+    name: "現在地テストチェックポイント",
+    prefecture: "テスト",
+    placeName: "現在地テスト",
+    image: currentCheckpoint().image,
+    difficulty: 1,
+    radius: 300,
+    points: 50,
+    lat: state.userLocation.lat,
+    lng: state.userLocation.lng,
+  };
+  checkpoints.unshift(testCheckpoint);
+  state.currentIndex = 0;
 }
 
 function selectNextCheckpointIndex() {
@@ -763,6 +817,15 @@ function closeMainMenu() {
   els.mainMenuDialog.close();
 }
 
+function openCheckpointAdmin() {
+  if (els.mainMenuDialog.open) closeMainMenu();
+  els.checkpointImage.value = currentCheckpoint().image;
+  els.checkpointLocationStatus.textContent = state.demoLocation
+    ? "現在地未設定。位置情報を許可してください。"
+    : `現在地設定済み: ${state.userLocation.lat.toFixed(6)}, ${state.userLocation.lng.toFixed(6)}`;
+  showView(els.checkpointAdminView);
+}
+
 function restart() {
   state.currentIndex = 0;
   state.clears = 0;
@@ -831,6 +894,8 @@ els.menuReviews.addEventListener("click", () => {
   closeMainMenu();
   renderPublicReviews();
 });
+els.adminTestMode.addEventListener("click", startTestMode);
+els.adminCheckpointCreate.addEventListener("click", openCheckpointAdmin);
 els.menuEnd.addEventListener("click", () => {
   closeMainMenu();
   showHome({ saveRun: true });
@@ -842,6 +907,42 @@ els.locationRequestButton.addEventListener("click", requestLocationFromButton);
 els.restartButton.addEventListener("click", restart);
 els.homeRogaining.addEventListener("click", showPlay);
 els.homeReviews.addEventListener("click", renderPublicReviews);
+els.checkpointBack.addEventListener("click", () => showView(els.playView));
+els.useCurrentLocation.addEventListener("click", () => {
+  if (state.demoLocation) {
+    requestLocationFromButton();
+    els.checkpointLocationStatus.textContent = "位置情報を取得中です。許可後にもう一度確認してください。";
+    return;
+  }
+  els.checkpointLocationStatus.textContent = `現在地設定済み: ${state.userLocation.lat.toFixed(6)}, ${state.userLocation.lng.toFixed(6)}`;
+});
+els.checkpointForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (state.demoLocation) {
+    showToast("現在地を取得してから作成してください");
+    return;
+  }
+  const checkpoint = {
+    name: els.checkpointPlace.value.trim() || "テストチェックポイント",
+    prefecture: els.checkpointPrefecture.value,
+    placeName: els.checkpointPlace.value.trim() || "テスト地点",
+    image: els.checkpointImage.value.trim() || currentCheckpoint().image,
+    difficulty: Number(els.checkpointDifficulty.value),
+    radius: Number(els.checkpointRadius.value),
+    points: 50 + Number(els.checkpointDifficulty.value) * 20,
+    lat: state.userLocation.lat,
+    lng: state.userLocation.lng,
+  };
+  try {
+    await window.machirogeStore.addCheckpoint(checkpoint);
+    checkpoints.unshift({ ...checkpoint, id: `local-${Date.now()}` });
+    state.currentIndex = 0;
+    showToast("チェックポイントを作成しました");
+    showPlay();
+  } catch {
+    showToast("チェックポイント作成に失敗しました");
+  }
+});
 
 els.stars.forEach((star) => {
   star.addEventListener("click", () => setRating(Number(star.dataset.rating)));
@@ -875,6 +976,7 @@ document.addEventListener("click", (event) => {
 window.addEventListener("load", () => {
   lucide.createIcons();
   renderCheckpoint();
+  loadSavedCheckpoints();
   registerServiceWorker();
 });
 
