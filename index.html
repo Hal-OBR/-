@@ -17,7 +17,7 @@
       integrity="sha256-p4NxAoJBhIINfQ0twYn4tc4Q0q8ztdRloM5A6J/6zFw="
       crossorigin=""
     />
-    <link rel="stylesheet" href="./styles.css?v=admin-tools-1" />
+    <link rel="stylesheet" href="./styles.css?v=checkpoint-photo-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -326,9 +326,13 @@
               <input id="checkpoint-place" type="text" maxlength="40" placeholder="例: 淵野辺駅前" />
             </label>
           </div>
-          <label class="comment-field">
-            写真URL
-            <input id="checkpoint-image" type="url" placeholder="口コミ写真URL、または画像URL" />
+          <label class="photo-upload checkpoint-upload">
+            <input id="checkpoint-photo-input" type="file" accept="image/*" />
+            <img id="checkpoint-photo-preview" alt="" />
+            <span id="checkpoint-upload-placeholder">
+              <i data-lucide="image-plus"></i>
+              チェックポイント写真を追加
+            </span>
           </label>
           <div class="review-meta-grid">
             <label>
@@ -419,8 +423,8 @@
     ></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./config.js?v=admin-tools-1"></script>
-    <script src="./data-store.js?v=admin-tools-1"></script>
-    <script src="./app.js?v=admin-tools-1"></script>
+    <script src="./config.js?v=checkpoint-photo-1"></script>
+    <script src="./data-store.js?v=checkpoint-photo-1"></script>
+    <script src="./app.js?v=checkpoint-photo-1"></script>
   </body>
 </html>

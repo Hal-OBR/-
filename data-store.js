@@ -67,9 +67,11 @@ class LocalMachirogeStore {
   }
 
   async addCheckpoint(checkpoint) {
+    const imageUrl = await this.#saveLocalImageIfNeeded(checkpoint.image);
     const checkpoints = this.#read(this.checkpointKey);
     checkpoints.unshift({
       ...checkpoint,
+      image: imageUrl,
       id: crypto.randomUUID?.() || String(Date.now()),
       createdAt: new Date().toISOString(),
     });
@@ -90,6 +92,10 @@ class LocalMachirogeStore {
     const userId = crypto.randomUUID?.() || `anon-${Date.now()}`;
     localStorage.setItem(this.userKey, userId);
     return userId;
+  }
+
+  async #saveLocalImageIfNeeded(image) {
+    return image;
   }
 }
 
@@ -216,11 +222,12 @@ class SupabaseMachirogeStore {
   }
 
   async addCheckpoint(checkpoint) {
+    const imageUrl = await this.#uploadImageIfNeeded(checkpoint.image);
     const { error } = await this.client.from("checkpoints").insert({
       checkpoint_name: checkpoint.name,
       prefecture: checkpoint.prefecture,
       place_name: checkpoint.placeName,
-      image_url: checkpoint.image,
+      image_url: imageUrl,
       difficulty: checkpoint.difficulty,
       radius_m: checkpoint.radius,
       points: checkpoint.points,

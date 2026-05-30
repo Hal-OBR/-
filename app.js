@@ -155,7 +155,9 @@ const els = {
   checkpointForm: document.querySelector("#checkpoint-form"),
   checkpointPrefecture: document.querySelector("#checkpoint-prefecture"),
   checkpointPlace: document.querySelector("#checkpoint-place"),
-  checkpointImage: document.querySelector("#checkpoint-image"),
+  checkpointPhotoInput: document.querySelector("#checkpoint-photo-input"),
+  checkpointPhotoPreview: document.querySelector("#checkpoint-photo-preview"),
+  checkpointUpload: document.querySelector(".checkpoint-upload"),
   checkpointDifficulty: document.querySelector("#checkpoint-difficulty"),
   checkpointRadius: document.querySelector("#checkpoint-radius"),
   useCurrentLocation: document.querySelector("#use-current-location"),
@@ -819,7 +821,8 @@ function closeMainMenu() {
 
 function openCheckpointAdmin() {
   if (els.mainMenuDialog.open) closeMainMenu();
-  els.checkpointImage.value = currentCheckpoint().image;
+  els.checkpointPhotoPreview.removeAttribute("src");
+  els.checkpointUpload.classList.remove("has-image");
   els.checkpointLocationStatus.textContent = state.demoLocation
     ? "現在地未設定。位置情報を許可してください。"
     : `現在地設定済み: ${state.userLocation.lat.toFixed(6)}, ${state.userLocation.lng.toFixed(6)}`;
@@ -926,7 +929,7 @@ els.checkpointForm.addEventListener("submit", async (event) => {
     name: els.checkpointPlace.value.trim() || "テストチェックポイント",
     prefecture: els.checkpointPrefecture.value,
     placeName: els.checkpointPlace.value.trim() || "テスト地点",
-    image: els.checkpointImage.value.trim() || currentCheckpoint().image,
+    image: els.checkpointPhotoPreview.getAttribute("src") || currentCheckpoint().image,
     difficulty: Number(els.checkpointDifficulty.value),
     radius: Number(els.checkpointRadius.value),
     points: 50 + Number(els.checkpointDifficulty.value) * 20,
@@ -955,6 +958,17 @@ els.photoInput.addEventListener("change", () => {
   reader.addEventListener("load", () => {
     els.reviewPreview.src = reader.result;
     els.photoUpload.classList.add("has-image");
+  });
+  reader.readAsDataURL(file);
+});
+
+els.checkpointPhotoInput.addEventListener("change", () => {
+  const file = els.checkpointPhotoInput.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    els.checkpointPhotoPreview.src = reader.result;
+    els.checkpointUpload.classList.add("has-image");
   });
   reader.readAsDataURL(file);
 });
