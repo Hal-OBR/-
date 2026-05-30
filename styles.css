@@ -826,6 +826,37 @@ textarea:focus,
   margin: 0 0 10px;
 }
 
+.admin-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.admin-tab {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+}
+
+.admin-tab.active {
+  border-color: var(--green);
+  background: #eefbf4;
+  color: var(--green-dark);
+}
+
+.admin-panel {
+  display: none;
+}
+
+.admin-panel.active {
+  display: block;
+}
+
 .admin-summary > div {
   padding: 12px;
   border: 1px solid var(--line);
@@ -940,6 +971,13 @@ textarea:focus,
   font-size: 13px;
 }
 
+.checkpoint-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.checkpoint-card-body input,
 .checkpoint-card-body select {
   width: 100%;
   margin-top: 6px;
@@ -1054,6 +1092,12 @@ textarea:focus,
   }
 
   .admin-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-tabs,
+  .candidate-controls,
+  .checkpoint-edit-grid {
     grid-template-columns: 1fr;
   }
 

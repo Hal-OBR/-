@@ -17,7 +17,7 @@
       integrity="sha256-p4NxAoJBhIINfQ0twYn4tc4Q0q8ztdRloM5A6J/6zFw="
       crossorigin=""
     />
-    <link rel="stylesheet" href="./styles.css?v=review-candidate-1" />
+    <link rel="stylesheet" href="./styles.css?v=admin-tabs-edit-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -281,8 +281,6 @@
           </button>
         </section>
 
-        <h3 class="admin-section-title">通報された写真</h3>
-
         <section class="admin-summary">
           <div>
             <span>確認待ち</span>
@@ -298,14 +296,26 @@
           </div>
         </section>
 
-        <h3 class="admin-section-title">口コミから候補化</h3>
-        <div id="review-candidate-list" class="review-candidate-list"></div>
+        <nav class="admin-tabs" aria-label="運営メニュー">
+          <button class="admin-tab active" type="button" data-admin-tab="candidates">口コミ候補</button>
+          <button class="admin-tab" type="button" data-admin-tab="checkpoints">チェックポイント</button>
+          <button class="admin-tab" type="button" data-admin-tab="reports">通報</button>
+        </nav>
 
-        <h3 class="admin-section-title">チェックポイント管理</h3>
-        <div id="checkpoint-list" class="checkpoint-list"></div>
+        <section class="admin-panel active" data-admin-panel="candidates">
+          <h3 class="admin-section-title">口コミから候補化</h3>
+          <div id="review-candidate-list" class="review-candidate-list"></div>
+        </section>
 
-        <h3 class="admin-section-title">通報一覧</h3>
-        <div id="report-list" class="report-list"></div>
+        <section class="admin-panel" data-admin-panel="checkpoints">
+          <h3 class="admin-section-title">チェックポイント管理</h3>
+          <div id="checkpoint-list" class="checkpoint-list"></div>
+        </section>
+
+        <section class="admin-panel" data-admin-panel="reports">
+          <h3 class="admin-section-title">通報一覧</h3>
+          <div id="report-list" class="report-list"></div>
+        </section>
       </section>
 
       <section id="checkpoint-admin-view" class="screen" aria-label="チェックポイント作成画面">
@@ -438,8 +448,8 @@
     ></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./config.js?v=review-candidate-1"></script>
-    <script src="./data-store.js?v=review-candidate-1"></script>
-    <script src="./app.js?v=review-candidate-1"></script>
+    <script src="./config.js?v=admin-tabs-edit-1"></script>
+    <script src="./data-store.js?v=admin-tabs-edit-1"></script>
+    <script src="./app.js?v=admin-tabs-edit-1"></script>
   </body>
 </html>

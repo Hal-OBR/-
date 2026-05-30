@@ -9,7 +9,7 @@ class LocalMachirogeStore {
   }
 
   async listReviews() {
-    return this.#read(this.reviewKey);
+    return this.#read(this.reviewKey).filter((review) => (review.status || "public") === "public");
   }
 
   async addReview(review) {
@@ -20,6 +20,13 @@ class LocalMachirogeStore {
       anonymousUserId: this.userId,
       createdAt: new Date().toISOString(),
     });
+    localStorage.setItem(this.reviewKey, JSON.stringify(reviews));
+  }
+
+  async updateReviewStatus(reviewId, status) {
+    const reviews = this.#read(this.reviewKey).map((review) =>
+      review.id === reviewId ? { ...review, status, updatedAt: new Date().toISOString() } : review,
+    );
     localStorage.setItem(this.reviewKey, JSON.stringify(reviews));
   }
 
@@ -154,6 +161,11 @@ class SupabaseMachirogeStore {
     if (error) throw error;
   }
 
+  async updateReviewStatus(reviewId, status) {
+    const { error } = await this.client.from("reviews").update({ status }).eq("id", reviewId);
+    if (error) throw error;
+  }
+
   async listReports() {
     const { data, error } = await this.client.from("reports").select("*").eq("status", "open").order("created_at", {
       ascending: false,
@@ -255,11 +267,16 @@ class SupabaseMachirogeStore {
 
   async updateCheckpoint(checkpointId, patch) {
     const updates = {};
+    if (patch.name !== undefined) updates.checkpoint_name = patch.name;
+    if (patch.prefecture !== undefined) updates.prefecture = patch.prefecture;
+    if (patch.placeName !== undefined) updates.place_name = patch.placeName;
     if (patch.difficulty !== undefined) {
       updates.difficulty = patch.difficulty;
       updates.points = 50 + Number(patch.difficulty) * 20;
     }
     if (patch.radius !== undefined) updates.radius_m = patch.radius;
+    if (patch.lat !== undefined) updates.lat = patch.lat;
+    if (patch.lng !== undefined) updates.lng = patch.lng;
     if (patch.status !== undefined) updates.status = patch.status;
 
     const { error } = await this.client.from("checkpoints").update(updates).eq("id", checkpointId);

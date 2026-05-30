@@ -116,6 +116,8 @@ const els = {
   checkpointList: document.querySelector("#checkpoint-list"),
   reviewCandidateCount: document.querySelector("#review-candidate-count"),
   reviewCandidateList: document.querySelector("#review-candidate-list"),
+  adminTabs: document.querySelectorAll("[data-admin-tab]"),
+  adminPanels: document.querySelectorAll("[data-admin-panel]"),
   locationStatus: document.querySelector("#location-status"),
   locationRequestButton: document.querySelector("#location-request-button"),
   checkinButton: document.querySelector("#checkin-button"),
@@ -536,6 +538,7 @@ async function renderAdmin() {
   els.reviewCandidateCount.textContent = String(availableReviewCandidates.length);
   renderReviewCandidates(availableReviewCandidates);
   renderAdminCheckpoints(adminCheckpoints);
+  setupAdminTabs();
   if (reports.length === 0) {
     els.reportList.innerHTML = `<p class="empty">現在、確認待ちの通報はありません。</p>`;
   } else {
@@ -577,6 +580,21 @@ async function renderAdmin() {
   showView(els.adminView);
 }
 
+function setupAdminTabs() {
+  els.adminTabs.forEach((tab) => {
+    tab.onclick = () => showAdminTab(tab.dataset.adminTab);
+  });
+}
+
+function showAdminTab(tabName) {
+  els.adminTabs.forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.adminTab === tabName);
+  });
+  els.adminPanels.forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.adminPanel === tabName);
+  });
+}
+
 function renderReviewCandidates(reviewCandidates) {
   if (reviewCandidates.length === 0) {
     els.reviewCandidateList.innerHTML = `<p class="empty">まだ候補にできる口コミがありません。</p>`;
@@ -616,6 +634,10 @@ function renderReviewCandidates(reviewCandidates) {
               <i data-lucide="map-plus"></i>
               チェックポイントにする
             </button>
+            <button class="secondary-button" type="button" data-review-candidate-hide="${index}">
+              <i data-lucide="archive-x"></i>
+              候補から外す
+            </button>
           </div>
         </article>
       `,
@@ -631,12 +653,16 @@ function renderReviewCandidates(reviewCandidates) {
       });
     });
   });
+  els.reviewCandidateList.querySelectorAll("[data-review-candidate-hide]").forEach((button) => {
+    button.addEventListener("click", () => {
+      hideReviewCandidate(reviewCandidates[Number(button.dataset.reviewCandidateHide)]);
+    });
+  });
 }
 
 async function adoptReviewAsCheckpoint(review, options) {
-  const location = resolveReviewLocation(review);
-  if (!location) {
-    showToast("位置が分からない口コミです。現在地を取得してから採用してください");
+  if (state.demoLocation) {
+    showToast("現在地を取得してから採用してください");
     return;
   }
 
@@ -649,8 +675,8 @@ async function adoptReviewAsCheckpoint(review, options) {
     difficulty: options.difficulty,
     radius: options.radius,
     points: 50 + options.difficulty * 20,
-    lat: location.lat,
-    lng: location.lng,
+    lat: state.userLocation.lat,
+    lng: state.userLocation.lng,
   };
 
   try {
@@ -667,26 +693,14 @@ async function adoptReviewAsCheckpoint(review, options) {
   }
 }
 
-function resolveReviewLocation(review) {
-  if (Number.isFinite(review.lat) && Number.isFinite(review.lng)) {
-    return { lat: review.lat, lng: review.lng };
+async function hideReviewCandidate(review) {
+  try {
+    await window.machirogeStore.updateReviewStatus(review.id, "hidden");
+    await renderAdmin();
+    showToast("口コミ候補から外しました");
+  } catch {
+    showToast("口コミ候補の除外に失敗しました");
   }
-
-  const matchedCheckpoint = checkpoints.find(
-    (checkpoint) =>
-      checkpoint.name === review.checkpoint ||
-      checkpoint.placeName === review.placeName ||
-      checkpoint.placeName === review.checkpoint,
-  );
-  if (matchedCheckpoint) {
-    return { lat: matchedCheckpoint.lat, lng: matchedCheckpoint.lng };
-  }
-
-  if (!state.demoLocation) {
-    return { lat: state.userLocation.lat, lng: state.userLocation.lng };
-  }
-
-  return null;
 }
 
 function renderAdminCheckpoints(adminCheckpoints) {
@@ -701,18 +715,51 @@ function renderAdminCheckpoints(adminCheckpoints) {
         <article class="checkpoint-card">
           <img src="${checkpoint.image}" alt="${escapeHtml(checkpoint.name)}の写真" />
           <div class="checkpoint-card-body">
-            <div>
-              <strong>${escapeHtml(checkpoint.placeName || checkpoint.name)}</strong>
-              <p>${escapeHtml(checkpoint.prefecture)} / 範囲 ${escapeHtml(checkpoint.radius)}m</p>
+            <strong>${escapeHtml(checkpoint.placeName || checkpoint.name)}</strong>
+            <div class="checkpoint-edit-grid">
+              <label>
+                県
+                <input data-checkpoint-prefecture value="${escapeHtml(checkpoint.prefecture)}" />
+              </label>
+              <label>
+                店名・場所名
+                <input data-checkpoint-place value="${escapeHtml(checkpoint.placeName || checkpoint.name)}" />
+              </label>
+              <label>
+                難易度
+                <select data-checkpoint-difficulty>
+                  <option value="1" ${checkpoint.difficulty === 1 ? "selected" : ""}>★</option>
+                  <option value="2" ${checkpoint.difficulty === 2 ? "selected" : ""}>★★</option>
+                  <option value="3" ${checkpoint.difficulty === 3 ? "selected" : ""}>★★★</option>
+                </select>
+              </label>
+              <label>
+                範囲
+                <select data-checkpoint-radius>
+                  <option value="300" ${checkpoint.radius === 300 ? "selected" : ""}>300m</option>
+                  <option value="500" ${checkpoint.radius === 500 ? "selected" : ""}>500m</option>
+                  <option value="900" ${checkpoint.radius === 900 ? "selected" : ""}>900m</option>
+                </select>
+              </label>
+              <label>
+                緯度
+                <input data-checkpoint-lat inputmode="decimal" value="${escapeHtml(checkpoint.lat)}" />
+              </label>
+              <label>
+                経度
+                <input data-checkpoint-lng inputmode="decimal" value="${escapeHtml(checkpoint.lng)}" />
+              </label>
             </div>
             <label>
-              難易度
-              <select data-checkpoint-difficulty="${escapeHtml(checkpoint.id)}">
-                <option value="1" ${checkpoint.difficulty === 1 ? "selected" : ""}>★</option>
-                <option value="2" ${checkpoint.difficulty === 2 ? "selected" : ""}>★★</option>
-                <option value="3" ${checkpoint.difficulty === 3 ? "selected" : ""}>★★★</option>
-              </select>
+              GoogleMap URL / 座標
+              <input data-checkpoint-map placeholder="URLまたは 35.6812,139.7671" />
             </label>
+            <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+              `${checkpoint.lat},${checkpoint.lng}`,
+            )}" target="_blank" rel="noopener">
+              <i data-lucide="map-pin"></i>
+              現在の座標をGoogle Mapsで見る
+            </a>
             <div class="checkpoint-actions">
               <button class="secondary-button" type="button" data-checkpoint-save="${escapeHtml(checkpoint.id)}">
                 <i data-lucide="save"></i>
@@ -731,8 +778,27 @@ function renderAdminCheckpoints(adminCheckpoints) {
 
   els.checkpointList.querySelectorAll("[data-checkpoint-save]").forEach((button) => {
     button.addEventListener("click", () => {
-      const select = button.closest(".checkpoint-card").querySelector("[data-checkpoint-difficulty]");
-      updateCheckpoint(button.dataset.checkpointSave, { difficulty: Number(select.value) }, "難易度を更新しました");
+      const card = button.closest(".checkpoint-card");
+      const mapCoordinates = parseMapCoordinates(card.querySelector("[data-checkpoint-map]").value);
+      const lat = mapCoordinates?.lat ?? Number(card.querySelector("[data-checkpoint-lat]").value);
+      const lng = mapCoordinates?.lng ?? Number(card.querySelector("[data-checkpoint-lng]").value);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        showToast("座標を確認してください");
+        return;
+      }
+      updateCheckpoint(
+        button.dataset.checkpointSave,
+        {
+          name: card.querySelector("[data-checkpoint-place]").value.trim(),
+          placeName: card.querySelector("[data-checkpoint-place]").value.trim(),
+          prefecture: card.querySelector("[data-checkpoint-prefecture]").value.trim(),
+          difficulty: Number(card.querySelector("[data-checkpoint-difficulty]").value),
+          radius: Number(card.querySelector("[data-checkpoint-radius]").value),
+          lat,
+          lng,
+        },
+        "チェックポイントを更新しました",
+      );
     });
   });
   els.checkpointList.querySelectorAll("[data-checkpoint-hide]").forEach((button) => {
@@ -752,8 +818,9 @@ async function updateCheckpoint(checkpointId, patch, successMessage) {
     } else if (patch.difficulty !== undefined) {
       const checkpoint = checkpoints.find((item) => item.id === checkpointId);
       if (checkpoint) {
-        checkpoint.difficulty = patch.difficulty;
-        checkpoint.points = 50 + Number(patch.difficulty) * 20;
+        Object.assign(checkpoint, patch, {
+          points: 50 + Number(patch.difficulty) * 20,
+        });
       }
     }
     await renderAdmin();
@@ -761,6 +828,28 @@ async function updateCheckpoint(checkpointId, patch, successMessage) {
   } catch {
     showToast("チェックポイントの更新に失敗しました");
   }
+}
+
+function parseMapCoordinates(value) {
+  const text = value.trim();
+  if (!text) return null;
+
+  const atMatch = text.match(/@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
+  if (atMatch) {
+    return { lat: Number(atMatch[1]), lng: Number(atMatch[2]) };
+  }
+
+  const markerMatch = text.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+  if (markerMatch) {
+    return { lat: Number(markerMatch[1]), lng: Number(markerMatch[2]) };
+  }
+
+  const plainMatch = text.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  if (plainMatch) {
+    return { lat: Number(plainMatch[1]), lng: Number(plainMatch[2]) };
+  }
+
+  return null;
 }
 
 async function updateReportStatus(reportId, status) {
