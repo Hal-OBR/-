@@ -433,24 +433,35 @@ function selectNextCheckpointIndex() {
 function updateDistanceState() {
   const distance = distanceInMeters(state.userLocation, currentCheckpoint());
   if (state.demoLocation) {
-    els.rangeLabel.textContent = `${currentCheckpoint().radius}m圏内`;
+    els.rangeLabel.textContent = formatDistanceMeters(distance);
     els.checkinButton.disabled = false;
     return;
   }
 
   if (distance <= 10) {
-    els.rangeLabel.textContent = "ほぼ到着";
+    els.rangeLabel.textContent = formatDistanceMeters(distance);
     els.checkinButton.disabled = false;
   } else if (distance <= 80) {
-    els.rangeLabel.textContent = "かなり近い";
+    els.rangeLabel.textContent = formatDistanceMeters(distance);
     els.checkinButton.disabled = true;
   } else if (distance <= currentCheckpoint().radius) {
-    els.rangeLabel.textContent = "範囲内";
+    els.rangeLabel.textContent = formatDistanceMeters(distance);
     els.checkinButton.disabled = true;
   } else {
-    els.rangeLabel.textContent = "範囲外";
+    els.rangeLabel.textContent = formatDistanceMeters(distance);
     els.checkinButton.disabled = true;
   }
+}
+
+function formatDistanceMeters(distance) {
+  if (distance <= 25) {
+    return `${distance.toLocaleString("ja-JP", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}m`;
+  }
+
+  return `${Math.round(distance).toLocaleString("ja-JP")}m`;
 }
 
 function distanceInMeters(from, to) {

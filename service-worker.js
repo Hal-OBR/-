@@ -1,4 +1,4 @@
-const CACHE_NAME = "machiroge-pwa-v13";
+const CACHE_NAME = "machiroge-pwa-v16";
 const APP_SHELL = [
   "./",
   "./index.html",
