@@ -1,5 +1,1398 @@
-window.MACHIROGE_CONFIG = {
-  supabaseUrl: "https://kkwbqdqssyrvyvqwhlel.supabase.co",
-  supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtrd2JxZHFzc3lydnl2cXdobGVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNjk3MTQsImV4cCI6MjA5NTY0NTcxNH0.y89uO2nd0Zcj5USoMYgs5JvXzUOO5aC5b82auKgaKrM",
-  photoBucket: "review-photos",
+const checkpoints = [
+  {
+    id: 1,
+    name: "路地の小さな飲食店",
+    prefecture: "東京都",
+    placeName: "新宿西口思い出横丁",
+    image: "https://images.unsplash.com/photo-1554797589-7241bb691973?auto=format&fit=crop&w=1000&q=80",
+    difficulty: 2,
+    radius: 500,
+    points: 70,
+    lat: 35.6817,
+    lng: 139.7689,
+  },
+  {
+    id: 2,
+    name: "川沿いの小さなベーカリー",
+    prefecture: "東京都",
+    placeName: "丸の内ベーカリー",
+    image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1000&q=80",
+    difficulty: 1,
+    radius: 300,
+    points: 50,
+    lat: 35.6841,
+    lng: 139.7626,
+  },
+  {
+    id: 3,
+    name: "路地にある古い看板",
+    prefecture: "京都府",
+    placeName: "京都 先斗町",
+    image: "https://images.unsplash.com/photo-1526481280693-3bfa7568e0f3?auto=format&fit=crop&w=1000&q=80",
+    difficulty: 3,
+    radius: 900,
+    points: 110,
+    lat: 35.6767,
+    lng: 139.7657,
+  },
+];
+
+const sampleReviews = [
+  {
+    checkpoint: "路地の小さな飲食店",
+    prefecture: "東京都",
+    placeName: "新宿西口思い出横丁",
+    catchCopy: "灯りに誘われて、もう一軒寄り道したくなる路地",
+    rating: 4,
+    comment: "灯りがきれいで、歩いているだけでも楽しい路地でした。",
+    image: checkpoints[0].image,
+  },
+  {
+    checkpoint: "川沿いの小さなベーカリー",
+    prefecture: "東京都",
+    placeName: "丸の内ベーカリー",
+    catchCopy: "朝の散歩が少し特別になる、香ばしい寄り道",
+    rating: 5,
+    comment: "焼きたての香りが外までしていました。朝の寄り道にちょうどいいです。",
+    image: checkpoints[1].image,
+  },
+  {
+    checkpoint: "路地にある古い看板",
+    prefecture: "京都府",
+    placeName: "京都 先斗町",
+    catchCopy: "見上げた先に、昔のまちの気配が残っている",
+    rating: 3,
+    comment: "少し見つけにくいけれど、看板の雰囲気がよかったです。",
+    image: checkpoints[2].image,
+  },
+];
+
+const state = {
+  currentIndex: 0,
+  clears: 0,
+  score: 0,
+  rating: 3,
+  secondsLeft: 30 * 60,
+  timerId: null,
+  userLocation: { lat: 35.6812, lng: 139.7671 },
+  demoLocation: true,
+  locationWatchId: null,
+  reviews: [],
+  runStarted: false,
+  runSaved: false,
+  map: null,
+  userMarker: null,
+  rangeCircle: null,
+  syncedCheckpointIds: new Set(),
+  lastSharedSyncAt: 0,
 };
+
+const ADMIN_PASSWORD = "machiroge";
+
+const els = {
+  homeView: document.querySelector("#home-view"),
+  playView: document.querySelector("#play-view"),
+  reviewView: document.querySelector("#review-view"),
+  resultView: document.querySelector("#result-view"),
+  reviewsView: document.querySelector("#reviews-view"),
+  adminView: document.querySelector("#admin-view"),
+  checkpointAdminView: document.querySelector("#checkpoint-admin-view"),
+  photo: document.querySelector("#checkpoint-photo"),
+  timer: document.querySelector("#timer"),
+  difficulty: document.querySelector("#difficulty"),
+  rangeLabel: document.querySelector("#range-label"),
+  moreButton: document.querySelector("#more-button"),
+  moreMenu: document.querySelector("#more-menu"),
+  reportButton: document.querySelector("#report-button"),
+  adminButton: document.querySelector("#admin-button"),
+  adminDialog: document.querySelector("#admin-dialog"),
+  adminLoginForm: document.querySelector("#admin-login-form"),
+  adminLoginSubmit: document.querySelector("#admin-login-submit"),
+  adminPassword: document.querySelector("#admin-password"),
+  adminError: document.querySelector("#admin-error"),
+  closeAdminDialog: document.querySelector("#close-admin-dialog"),
+  backToPlay: document.querySelector("#back-to-play"),
+  reportCount: document.querySelector("#report-count"),
+  reportList: document.querySelector("#report-list"),
+  checkpointCount: document.querySelector("#checkpoint-count"),
+  checkpointList: document.querySelector("#checkpoint-list"),
+  reviewCandidateCount: document.querySelector("#review-candidate-count"),
+  reviewCandidateList: document.querySelector("#review-candidate-list"),
+  adminTabs: document.querySelectorAll("[data-admin-tab]"),
+  adminPanels: document.querySelectorAll("[data-admin-panel]"),
+  locationStatus: document.querySelector("#location-status"),
+  locationRequestButton: document.querySelector("#location-request-button"),
+  checkinButton: document.querySelector("#checkin-button"),
+  refreshButton: document.querySelector("#refresh-button"),
+  mainMenuButton: document.querySelector("#main-menu-button"),
+  resultMenuButton: document.querySelector("#result-menu-button"),
+  mainMenuDialog: document.querySelector("#main-menu-dialog"),
+  closeMainMenu: document.querySelector("#close-main-menu"),
+  menuRogaining: document.querySelector("#menu-rogaining"),
+  menuReviews: document.querySelector("#menu-reviews"),
+  menuEnd: document.querySelector("#menu-end"),
+  reviewsBack: document.querySelector("#reviews-back"),
+  publicReviewList: document.querySelector("#public-review-list"),
+  reviewTabs: document.querySelector("#review-tabs"),
+  reviewDetail: document.querySelector("#review-detail"),
+  reviewForm: document.querySelector("#review-form"),
+  photoInput: document.querySelector("#photo-input"),
+  reviewPreview: document.querySelector("#review-preview"),
+  photoUpload: document.querySelector(".photo-upload"),
+  prefectureInput: document.querySelector("#prefecture-input"),
+  placeInput: document.querySelector("#place-input"),
+  catchCopyInput: document.querySelector("#catch-copy-input"),
+  stars: document.querySelectorAll("#stars button"),
+  commentInput: document.querySelector("#comment-input"),
+  skipReview: document.querySelector("#skip-review"),
+  toast: document.querySelector("#toast"),
+  clearCount: document.querySelector("#clear-count"),
+  scoreTotal: document.querySelector("#score-total"),
+  photoCount: document.querySelector("#photo-count"),
+  celebrationCopy: document.querySelector("#celebration-copy"),
+  postedReviews: document.querySelector("#posted-reviews"),
+  percentile: document.querySelector("#percentile"),
+  restartButton: document.querySelector("#restart-button"),
+  homeRogaining: document.querySelector("#home-rogaining"),
+  homeReviews: document.querySelector("#home-reviews"),
+  homeResult: document.querySelector("#home-result"),
+  homeResultCopy: document.querySelector("#home-result-copy"),
+  homeClearCount: document.querySelector("#home-clear-count"),
+  homeScoreTotal: document.querySelector("#home-score-total"),
+  homePhotoCount: document.querySelector("#home-photo-count"),
+  checkpointBack: document.querySelector("#checkpoint-back"),
+  checkpointForm: document.querySelector("#checkpoint-form"),
+  checkpointPrefecture: document.querySelector("#checkpoint-prefecture"),
+  checkpointPlace: document.querySelector("#checkpoint-place"),
+  checkpointPhotoInput: document.querySelector("#checkpoint-photo-input"),
+  checkpointPhotoPreview: document.querySelector("#checkpoint-photo-preview"),
+  checkpointUpload: document.querySelector(".checkpoint-upload"),
+  checkpointDifficulty: document.querySelector("#checkpoint-difficulty"),
+  checkpointRadius: document.querySelector("#checkpoint-radius"),
+  useCurrentLocation: document.querySelector("#use-current-location"),
+  checkpointLocationStatus: document.querySelector("#checkpoint-location-status"),
+  adminTestMode: document.querySelector("#admin-test-mode"),
+  adminCheckpointCreate: document.querySelector("#admin-checkpoint-create"),
+  iosInstallCard: document.querySelector("#ios-install-card"),
+  iosInstallClose: document.querySelector("#ios-install-close"),
+};
+
+function currentCheckpoint() {
+  return checkpoints[state.currentIndex];
+}
+
+function showView(view) {
+  [els.homeView, els.playView, els.reviewView, els.resultView, els.reviewsView, els.adminView, els.checkpointAdminView].forEach(
+    (screen) => screen.classList.remove("active"),
+  );
+  view.classList.add("active");
+}
+
+function showPlay() {
+  showView(els.playView);
+  state.runStarted = true;
+  state.runSaved = false;
+  els.homeResult.hidden = true;
+  if (!state.map) {
+    initMap();
+    requestLocation();
+  }
+  renderCheckpoint();
+  startTimer();
+  setTimeout(() => state.map?.invalidateSize(), 80);
+}
+
+async function showHome({ saveRun = false } = {}) {
+  window.clearInterval(state.timerId);
+  if (saveRun && state.runStarted && !state.runSaved) {
+    await saveRunScoreToHome();
+  }
+  showView(els.homeView);
+}
+
+async function saveRunScoreToHome() {
+  state.runSaved = true;
+  els.homeClearCount.textContent = String(state.clears);
+  els.homeScoreTotal.textContent = `${state.score}pt`;
+  els.homePhotoCount.textContent = String(state.reviews.length);
+  els.homeResult.hidden = false;
+
+  if (state.score === 0) {
+    els.homeResultCopy.textContent = "今日は下見でも大丈夫。気になった場所から、また歩き出せます。";
+    return;
+  }
+
+  try {
+    await window.machirogeStore.addScore({
+      clears: state.clears,
+      score: state.score,
+      photoCount: state.reviews.length,
+      durationSeconds: 30 * 60 - state.secondsLeft,
+    });
+    const percentile = await calculatePercentileFromSavedScores();
+    els.homeResultCopy.textContent = makeCelebrationCopy(percentile);
+  } catch {
+    const percentile = calculateDemoPercentile();
+    els.homeResultCopy.textContent = `スコア保存に失敗しました。デモ集計では上位${percentile}%です。`;
+  }
+}
+
+async function loadSavedCheckpoints() {
+  try {
+    const saved = await window.machirogeStore.listCheckpoints();
+    const savedIds = new Set(saved.map((checkpoint) => checkpoint.id));
+    for (let index = checkpoints.length - 1; index >= 0; index -= 1) {
+      const checkpoint = checkpoints[index];
+      if (state.syncedCheckpointIds.has(checkpoint.id) && !savedIds.has(checkpoint.id)) {
+        checkpoints.splice(index, 1);
+      }
+    }
+    saved.forEach((checkpoint) => {
+      const existing = checkpoints.find((item) => item.id === checkpoint.id);
+      if (existing) {
+        Object.assign(existing, checkpoint);
+      } else {
+        checkpoints.unshift(checkpoint);
+      }
+    });
+    state.syncedCheckpointIds = savedIds;
+    state.lastSharedSyncAt = Date.now();
+    if (state.currentIndex >= checkpoints.length) state.currentIndex = 0;
+  } catch {
+    showToast("チェックポイントの読み込みに失敗しました");
+  }
+}
+
+function renderCheckpoint() {
+  const point = currentCheckpoint();
+  els.photo.src = point.image;
+  els.difficulty.textContent = "★".repeat(point.difficulty) + "☆".repeat(3 - point.difficulty);
+  state.secondsLeft = 30 * 60;
+  updateTimer();
+  updateDistanceState();
+  updateMap();
+}
+
+async function syncSharedData({ force = false } = {}) {
+  if (!navigator.onLine) return;
+  if (!force && Date.now() - state.lastSharedSyncAt < 15000) return;
+
+  await loadSavedCheckpoints();
+  if (els.reviewsView.classList.contains("active")) {
+    await renderPublicReviews();
+  }
+}
+
+function startTimer() {
+  window.clearInterval(state.timerId);
+  state.timerId = window.setInterval(() => {
+    state.secondsLeft -= 1;
+    updateTimer();
+    if (state.secondsLeft <= 0) {
+      finishRun();
+    }
+  }, 1000);
+}
+
+function updateTimer() {
+  const minutes = Math.max(0, Math.floor(state.secondsLeft / 60));
+  const seconds = Math.max(0, state.secondsLeft % 60);
+  els.timer.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function initMap() {
+  state.map = L.map("map", {
+    zoomControl: false,
+    attributionControl: false,
+  }).setView([state.userLocation.lat, state.userLocation.lng], 15);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+  }).addTo(state.map);
+
+  L.control.attribution({ prefix: false }).addAttribution("&copy; OpenStreetMap").addTo(state.map);
+  updateMap();
+  setTimeout(() => {
+    state.map.invalidateSize();
+    updateMap();
+  }, 120);
+}
+
+function updateMap() {
+  if (!state.map || !window.L) return;
+  const point = currentCheckpoint();
+  const center = [state.userLocation.lat, state.userLocation.lng];
+
+  state.map.setView(center, point.radius >= 800 ? 14 : 15);
+
+  if (!state.userMarker) {
+    state.userMarker = L.circleMarker(center, {
+      radius: 8,
+      color: "#ffffff",
+      weight: 3,
+      fillColor: "#2f6fed",
+      fillOpacity: 1,
+    }).addTo(state.map);
+  } else {
+    state.userMarker.setLatLng(center);
+  }
+
+  if (!state.rangeCircle) {
+    state.rangeCircle = L.circle(center, {
+      radius: point.radius,
+      color: "#1f9d73",
+      weight: 2,
+      fillColor: "#1f9d73",
+      fillOpacity: 0.13,
+    }).addTo(state.map);
+  } else {
+    state.rangeCircle.setLatLng(center);
+    state.rangeCircle.setRadius(point.radius);
+  }
+}
+
+function requestLocation() {
+  if (!window.isSecureContext) {
+    state.demoLocation = true;
+    els.locationStatus.textContent = "スマホで現在地を使うにはHTTPS公開が必要です。今はサンプル地点で表示しています。";
+    showToast("現在地を使うにはHTTPSが必要です");
+    return;
+  }
+
+  if (!navigator.geolocation) {
+    els.locationStatus.textContent = "位置情報に対応していないため、サンプル地点で表示しています。";
+    return;
+  }
+
+  els.locationStatus.textContent = "位置情報の許可後、現在地を中心に範囲円を表示します。";
+  state.locationWatchId = navigator.geolocation.watchPosition(
+    (position) => {
+      state.userLocation = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      };
+      state.demoLocation = false;
+      updateMap();
+      updateDistanceState();
+      els.locationStatus.textContent = `現在地を更新中です。精度は約${Math.round(position.coords.accuracy)}mです。`;
+    },
+    () => {
+      state.demoLocation = true;
+      els.locationStatus.textContent = "位置情報が許可されていないため、サンプル地点で表示しています。";
+      showToast("現在地はサンプル地点で表示しています");
+    },
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 5000 },
+  );
+}
+
+function requestLocationFromButton() {
+  if (state.locationWatchId !== null && !state.demoLocation) {
+    showToast("現在地はすでに更新中です");
+    return;
+  }
+
+  if (state.locationWatchId !== null) {
+    navigator.geolocation.clearWatch(state.locationWatchId);
+    state.locationWatchId = null;
+  }
+
+  requestLocation();
+}
+
+function completeCheckpoint() {
+  const distance = distanceInMeters(state.userLocation, currentCheckpoint());
+  if (!state.demoLocation && distance > 10) {
+    showToast("もう少し近づくとチェックインできます");
+    return;
+  }
+
+  const point = currentCheckpoint();
+  state.clears += 1;
+  state.score += point.points + point.difficulty * 10;
+  window.clearInterval(state.timerId);
+  resetReviewForm();
+  showView(els.reviewView);
+}
+
+function refreshCheckpoint() {
+  state.currentIndex = selectNextCheckpointIndex();
+  renderCheckpoint();
+  showToast("次の候補に切り替えました");
+}
+
+function startTestMode() {
+  if (els.mainMenuDialog.open) closeMainMenu();
+  if (!state.demoLocation) {
+    addTestCheckpointFromLocation();
+    showPlay();
+    showToast("現在地をテスト用チェックポイントにしました");
+    return;
+  }
+  showPlay();
+  showToast("位置情報を許可すると現在地でテストできます");
+}
+
+function addTestCheckpointFromLocation() {
+  const testCheckpoint = {
+    id: `test-${Date.now()}`,
+    name: "現在地テストチェックポイント",
+    prefecture: "テスト",
+    placeName: "現在地テスト",
+    image: currentCheckpoint().image,
+    difficulty: 1,
+    radius: 300,
+    points: 50,
+    lat: state.userLocation.lat,
+    lng: state.userLocation.lng,
+  };
+  checkpoints.unshift(testCheckpoint);
+  state.currentIndex = 0;
+}
+
+function selectNextCheckpointIndex() {
+  const candidates = checkpoints
+    .map((checkpoint, index) => ({
+      index,
+      distance: distanceInMeters(state.userLocation, checkpoint),
+      difficulty: checkpoint.difficulty,
+    }))
+    .filter((candidate) => candidate.index !== state.currentIndex)
+    .filter((candidate) => state.demoLocation || (candidate.distance >= 300 && candidate.distance <= 900))
+    .sort((a, b) => b.difficulty - a.difficulty || a.distance - b.distance);
+
+  if (candidates.length > 0) return candidates[0].index;
+  return (state.currentIndex + 1) % checkpoints.length;
+}
+
+function updateDistanceState() {
+  const distance = distanceInMeters(state.userLocation, currentCheckpoint());
+  if (state.demoLocation) {
+    els.rangeLabel.textContent = formatDistanceMeters(distance);
+    els.checkinButton.disabled = false;
+    return;
+  }
+
+  if (distance <= 10) {
+    els.rangeLabel.textContent = formatDistanceMeters(distance);
+    els.checkinButton.disabled = false;
+  } else if (distance <= 80) {
+    els.rangeLabel.textContent = formatDistanceMeters(distance);
+    els.checkinButton.disabled = true;
+  } else if (distance <= currentCheckpoint().radius) {
+    els.rangeLabel.textContent = formatDistanceMeters(distance);
+    els.checkinButton.disabled = true;
+  } else {
+    els.rangeLabel.textContent = formatDistanceMeters(distance);
+    els.checkinButton.disabled = true;
+  }
+}
+
+function formatDistanceMeters(distance) {
+  if (distance <= 25) {
+    return `${distance.toLocaleString("ja-JP", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}m`;
+  }
+
+  return `${Math.round(distance).toLocaleString("ja-JP")}m`;
+}
+
+function distanceInMeters(from, to) {
+  const earthRadius = 6371000;
+  const lat1 = toRadians(from.lat);
+  const lat2 = toRadians(to.lat);
+  const deltaLat = toRadians(to.lat - from.lat);
+  const deltaLng = toRadians(to.lng - from.lng);
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+async function reportCurrentPhoto() {
+  const point = currentCheckpoint();
+  const report = {
+    id: `${Date.now()}-${point.id}`,
+    checkpoint: point.name,
+    image: point.image,
+    reason: "ユーザー通報",
+    status: "open",
+    createdAt: new Date().toLocaleString("ja-JP"),
+  };
+  try {
+    await window.machirogeStore.addReport(report);
+  } catch {
+    showToast("通報の保存に失敗しました");
+    return;
+  }
+  els.moreMenu.classList.remove("open");
+  els.moreMenu.setAttribute("aria-hidden", "true");
+  showToast("通報を受け付けました。この写真は確認対象になります");
+}
+
+async function readReports() {
+  try {
+    return await window.machirogeStore.listReports();
+  } catch {
+    showToast("通報一覧の読み込みに失敗しました");
+    return [];
+  }
+}
+
+async function readAdminCheckpoints() {
+  try {
+    return await window.machirogeStore.listCheckpoints();
+  } catch {
+    showToast("チェックポイント一覧の読み込みに失敗しました");
+    return [];
+  }
+}
+
+async function renderAdmin() {
+  const reports = await readReports();
+  const adminCheckpoints = await readAdminCheckpoints();
+  const reviewCandidates = await readPublicReviews();
+  const availableReviewCandidates = reviewCandidates.filter(
+    (review) => !adminCheckpoints.some((checkpoint) => checkpoint.reviewId && review.id && checkpoint.reviewId === review.id),
+  );
+  els.reportCount.textContent = String(reports.length);
+  els.checkpointCount.textContent = String(adminCheckpoints.length);
+  els.reviewCandidateCount.textContent = String(availableReviewCandidates.length);
+  renderReviewCandidates(availableReviewCandidates);
+  renderAdminCheckpoints(adminCheckpoints);
+  setupAdminTabs();
+  if (reports.length === 0) {
+    els.reportList.innerHTML = `<p class="empty">現在、確認待ちの通報はありません。</p>`;
+  } else {
+    els.reportList.innerHTML = reports
+      .map(
+        (report) => `
+          <article class="report-card">
+            <img src="${report.image}" alt="${escapeHtml(report.checkpoint)}の通報写真" />
+            <div class="report-card-body">
+              <strong>${escapeHtml(report.checkpoint)}</strong>
+              <p>${escapeHtml(report.reason)} / ${escapeHtml(report.createdAt)}</p>
+              <p>誤通報なら取り下げ、不適切なら削除対応を選んでください。</p>
+              <div class="report-actions">
+                <button class="secondary-button" type="button" data-report-action="withdrawn" data-report-id="${escapeHtml(
+                  report.id,
+                )}">
+                  <i data-lucide="undo-2"></i>
+                  通報を取り下げ
+                </button>
+                <button class="primary-button" type="button" data-report-action="resolved" data-report-id="${escapeHtml(
+                  report.id,
+                )}">
+                  <i data-lucide="trash-2"></i>
+                  削除対応
+                </button>
+              </div>
+            </div>
+          </article>
+        `,
+      )
+      .join("");
+    els.reportList.querySelectorAll("[data-report-action]").forEach((button) => {
+      button.addEventListener("click", () => {
+        updateReportStatus(button.dataset.reportId, button.dataset.reportAction);
+      });
+    });
+  }
+  lucide.createIcons();
+  showView(els.adminView);
+}
+
+function setupAdminTabs() {
+  els.adminTabs.forEach((tab) => {
+    tab.onclick = () => showAdminTab(tab.dataset.adminTab);
+  });
+}
+
+function showAdminTab(tabName) {
+  els.adminTabs.forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.adminTab === tabName);
+  });
+  els.adminPanels.forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.adminPanel === tabName);
+  });
+}
+
+function renderReviewCandidates(reviewCandidates) {
+  if (reviewCandidates.length === 0) {
+    els.reviewCandidateList.innerHTML = `<p class="empty">まだ候補にできる口コミがありません。</p>`;
+    return;
+  }
+
+  els.reviewCandidateList.innerHTML = reviewCandidates
+    .map(
+      (review, index) => `
+        <article class="review-candidate-card">
+          <img src="${review.image}" alt="${escapeHtml(review.placeName || review.checkpoint)}の口コミ写真" />
+          <div class="review-candidate-body">
+            <div>
+              <strong>${escapeHtml(review.catchCopy || makeCatchCopy(review.checkpoint))}</strong>
+              <p>${escapeHtml(review.prefecture)} / ${escapeHtml(review.placeName || review.checkpoint)}</p>
+              <p>${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)} ${escapeHtml(review.comment)}</p>
+            </div>
+            <div class="candidate-controls">
+              <label>
+                難易度
+                <select data-candidate-difficulty>
+                  <option value="1">★</option>
+                  <option value="2" selected>★★</option>
+                  <option value="3">★★★</option>
+                </select>
+              </label>
+              <label>
+                範囲
+                <select data-candidate-radius>
+                  <option value="300">300m</option>
+                  <option value="500" selected>500m</option>
+                  <option value="900">900m</option>
+                </select>
+              </label>
+            </div>
+            <button class="primary-button" type="button" data-review-candidate-index="${index}">
+              <i data-lucide="map-plus"></i>
+              チェックポイントにする
+            </button>
+            <button class="secondary-button" type="button" data-review-candidate-hide="${index}">
+              <i data-lucide="archive-x"></i>
+              候補から外す
+            </button>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+
+  els.reviewCandidateList.querySelectorAll("[data-review-candidate-index]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const card = button.closest(".review-candidate-card");
+      adoptReviewAsCheckpoint(reviewCandidates[Number(button.dataset.reviewCandidateIndex)], {
+        difficulty: Number(card.querySelector("[data-candidate-difficulty]").value),
+        radius: Number(card.querySelector("[data-candidate-radius]").value),
+      });
+    });
+  });
+  els.reviewCandidateList.querySelectorAll("[data-review-candidate-hide]").forEach((button) => {
+    button.addEventListener("click", () => {
+      hideReviewCandidate(reviewCandidates[Number(button.dataset.reviewCandidateHide)]);
+    });
+  });
+}
+
+async function adoptReviewAsCheckpoint(review, options) {
+  if (state.demoLocation) {
+    showToast("現在地を取得してから採用してください");
+    return;
+  }
+
+  const checkpoint = {
+    reviewId: review.id,
+    name: review.placeName || review.checkpoint,
+    prefecture: review.prefecture || "未設定",
+    placeName: review.placeName || review.checkpoint,
+    image: review.image,
+    difficulty: options.difficulty,
+    radius: options.radius,
+    points: 50 + options.difficulty * 20,
+    lat: state.userLocation.lat,
+    lng: state.userLocation.lng,
+  };
+
+  try {
+    await window.machirogeStore.addCheckpoint(checkpoint);
+    checkpoints.unshift({
+      ...checkpoint,
+      id: `review-${review.id || Date.now()}`,
+      status: "active",
+    });
+    await renderAdmin();
+    showToast("口コミ写真をチェックポイントにしました");
+  } catch {
+    showToast("チェックポイント化に失敗しました");
+  }
+}
+
+async function hideReviewCandidate(review) {
+  try {
+    await window.machirogeStore.updateReviewStatus(review.id, "hidden");
+    await renderAdmin();
+    showToast("口コミ候補から外しました");
+  } catch {
+    showToast("口コミ候補の除外に失敗しました");
+  }
+}
+
+function renderAdminCheckpoints(adminCheckpoints) {
+  if (adminCheckpoints.length === 0) {
+    els.checkpointList.innerHTML = `<p class="empty">まだチェックポイントがありません。</p>`;
+    return;
+  }
+
+  els.checkpointList.innerHTML = adminCheckpoints
+    .map(
+      (checkpoint) => `
+        <article class="checkpoint-card">
+          <img src="${checkpoint.image}" alt="${escapeHtml(checkpoint.name)}の写真" />
+          <div class="checkpoint-card-body">
+            <strong>${escapeHtml(checkpoint.placeName || checkpoint.name)}</strong>
+            <div class="checkpoint-edit-grid">
+              <label>
+                県
+                <input data-checkpoint-prefecture value="${escapeHtml(checkpoint.prefecture)}" />
+              </label>
+              <label>
+                店名・場所名
+                <input data-checkpoint-place value="${escapeHtml(checkpoint.placeName || checkpoint.name)}" />
+              </label>
+              <label>
+                難易度
+                <select data-checkpoint-difficulty>
+                  <option value="1" ${checkpoint.difficulty === 1 ? "selected" : ""}>★</option>
+                  <option value="2" ${checkpoint.difficulty === 2 ? "selected" : ""}>★★</option>
+                  <option value="3" ${checkpoint.difficulty === 3 ? "selected" : ""}>★★★</option>
+                </select>
+              </label>
+              <label>
+                範囲
+                <select data-checkpoint-radius>
+                  <option value="300" ${checkpoint.radius === 300 ? "selected" : ""}>300m</option>
+                  <option value="500" ${checkpoint.radius === 500 ? "selected" : ""}>500m</option>
+                  <option value="900" ${checkpoint.radius === 900 ? "selected" : ""}>900m</option>
+                </select>
+              </label>
+              <label>
+                緯度
+                <input data-checkpoint-lat inputmode="decimal" value="${escapeHtml(checkpoint.lat)}" />
+              </label>
+              <label>
+                経度
+                <input data-checkpoint-lng inputmode="decimal" value="${escapeHtml(checkpoint.lng)}" />
+              </label>
+            </div>
+            <label>
+              GoogleMap URL / 座標
+              <input data-checkpoint-map placeholder="URLまたは 35.6812,139.7671" />
+            </label>
+            <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+              `${checkpoint.lat},${checkpoint.lng}`,
+            )}" target="_blank" rel="noopener">
+              <i data-lucide="map-pin"></i>
+              現在の座標をGoogle Mapsで見る
+            </a>
+            <div class="checkpoint-actions">
+              <button class="secondary-button" type="button" data-checkpoint-save="${escapeHtml(checkpoint.id)}">
+                <i data-lucide="save"></i>
+                保存
+              </button>
+              <button class="primary-button danger-button" type="button" data-checkpoint-delete="${escapeHtml(checkpoint.id)}">
+                <i data-lucide="trash-2"></i>
+                削除
+              </button>
+            </div>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+
+  els.checkpointList.querySelectorAll("[data-checkpoint-save]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const card = button.closest(".checkpoint-card");
+      const mapCoordinates = parseMapCoordinates(card.querySelector("[data-checkpoint-map]").value);
+      const lat = mapCoordinates?.lat ?? Number(card.querySelector("[data-checkpoint-lat]").value);
+      const lng = mapCoordinates?.lng ?? Number(card.querySelector("[data-checkpoint-lng]").value);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        showToast("座標を確認してください");
+        return;
+      }
+      updateCheckpoint(
+        button.dataset.checkpointSave,
+        {
+          name: card.querySelector("[data-checkpoint-place]").value.trim(),
+          placeName: card.querySelector("[data-checkpoint-place]").value.trim(),
+          prefecture: card.querySelector("[data-checkpoint-prefecture]").value.trim(),
+          difficulty: Number(card.querySelector("[data-checkpoint-difficulty]").value),
+          radius: Number(card.querySelector("[data-checkpoint-radius]").value),
+          lat,
+          lng,
+        },
+        "チェックポイントを更新しました",
+      );
+    });
+  });
+  els.checkpointList.querySelectorAll("[data-checkpoint-delete]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const card = button.closest(".checkpoint-card");
+      const placeName = card.querySelector("[data-checkpoint-place]").value.trim() || "このチェックポイント";
+      if (!window.confirm(`「${placeName}」を削除しますか？`)) return;
+      deleteCheckpoint(button.dataset.checkpointDelete);
+    });
+  });
+}
+
+async function deleteCheckpoint(checkpointId) {
+  try {
+    await window.machirogeStore.deleteCheckpoint(checkpointId);
+    const index = checkpoints.findIndex((checkpoint) => checkpoint.id === checkpointId);
+    if (index >= 0) checkpoints.splice(index, 1);
+    state.syncedCheckpointIds.delete(checkpointId);
+    if (state.currentIndex >= checkpoints.length) state.currentIndex = 0;
+    await renderAdmin();
+    showToast("チェックポイントを削除しました");
+  } catch {
+    showToast("チェックポイントの削除に失敗しました");
+  }
+}
+
+async function updateCheckpoint(checkpointId, patch, successMessage) {
+  try {
+    await window.machirogeStore.updateCheckpoint(checkpointId, patch);
+    if (patch.status === "inactive") {
+      const index = checkpoints.findIndex((checkpoint) => checkpoint.id === checkpointId);
+      if (index >= 0) checkpoints.splice(index, 1);
+      if (state.currentIndex >= checkpoints.length) state.currentIndex = 0;
+    } else if (patch.difficulty !== undefined) {
+      const checkpoint = checkpoints.find((item) => item.id === checkpointId);
+      if (checkpoint) {
+        Object.assign(checkpoint, patch, {
+          points: 50 + Number(patch.difficulty) * 20,
+        });
+      }
+    }
+    await renderAdmin();
+    showToast(successMessage);
+  } catch {
+    showToast("チェックポイントの更新に失敗しました");
+  }
+}
+
+function parseMapCoordinates(value) {
+  const text = value.trim();
+  if (!text) return null;
+
+  const atMatch = text.match(/@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
+  if (atMatch) {
+    return { lat: Number(atMatch[1]), lng: Number(atMatch[2]) };
+  }
+
+  const markerMatch = text.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+  if (markerMatch) {
+    return { lat: Number(markerMatch[1]), lng: Number(markerMatch[2]) };
+  }
+
+  const plainMatch = text.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  if (plainMatch) {
+    return { lat: Number(plainMatch[1]), lng: Number(plainMatch[2]) };
+  }
+
+  return null;
+}
+
+async function updateReportStatus(reportId, status) {
+  const label = status === "withdrawn" ? "通報を取り下げました" : "対応済みにしました";
+  try {
+    await window.machirogeStore.updateReportStatus(reportId, status);
+    await renderAdmin();
+    showToast(label);
+  } catch {
+    showToast("通報の更新に失敗しました");
+  }
+}
+
+function openAdminLogin() {
+  els.adminPassword.value = "";
+  els.adminError.textContent = "";
+  if (typeof els.adminDialog.showModal === "function") {
+    els.adminDialog.showModal();
+  } else {
+    renderAdmin();
+    return;
+  }
+  setTimeout(() => els.adminPassword.focus(), 50);
+}
+
+function closeAdminLogin() {
+  if (els.adminDialog.open) els.adminDialog.close();
+}
+
+async function submitAdminLogin() {
+  if (els.adminPassword.value !== ADMIN_PASSWORD) {
+    els.adminError.textContent = "パスワードが違います";
+    els.adminPassword.select();
+    return;
+  }
+
+  closeAdminLogin();
+  await renderAdmin();
+}
+
+function resetReviewForm() {
+  els.reviewForm.reset();
+  els.reviewPreview.removeAttribute("src");
+  els.photoUpload.classList.remove("has-image");
+  els.prefectureInput.value = currentCheckpoint().prefecture || "東京都";
+  els.placeInput.value = currentCheckpoint().placeName || "";
+  els.catchCopyInput.value = "";
+  els.commentInput.value = "";
+  setRating(3);
+}
+
+function setRating(value) {
+  state.rating = value;
+  els.stars.forEach((star) => {
+    star.classList.toggle("active", Number(star.dataset.rating) <= value);
+  });
+}
+
+async function submitReview(skip = false) {
+  const previewSrc = els.reviewPreview.getAttribute("src");
+  const point = currentCheckpoint();
+  if (!skip) {
+    const review = {
+      checkpoint: point.name,
+      prefecture: els.prefectureInput.value,
+      placeName: els.placeInput.value.trim() || point.placeName || point.name,
+      catchCopy: els.catchCopyInput.value.trim() || makeCatchCopy(point.name),
+      rating: state.rating,
+      comment: els.commentInput.value.trim() || "口コミを投稿しました",
+      image: previewSrc || point.image,
+      lat: point.lat,
+      lng: point.lng,
+    };
+    state.reviews.push(review);
+    try {
+      await savePublicReviews(review);
+    } catch {
+      showToast("口コミの保存に失敗しました");
+      return;
+    }
+  }
+
+  state.currentIndex = selectNextCheckpointIndex();
+  renderCheckpoint();
+  startTimer();
+  showView(els.playView);
+  setTimeout(() => state.map?.invalidateSize(), 80);
+}
+
+async function savePublicReviews(review) {
+  await window.machirogeStore.addReview(review);
+}
+
+async function readPublicReviews() {
+  try {
+    return await window.machirogeStore.listReviews();
+  } catch {
+    showToast("口コミの読み込みに失敗しました");
+    return [];
+  }
+}
+
+async function finishRun() {
+  window.clearInterval(state.timerId);
+  els.clearCount.textContent = String(state.clears);
+  els.scoreTotal.textContent = `${state.score}pt`;
+  els.photoCount.textContent = String(state.reviews.length);
+  els.celebrationCopy.textContent = state.score === 0 ? makeCelebrationCopy(null) : "スコアを保存して順位を集計しています。";
+  els.percentile.textContent = state.score === 0 ? "次は最初の1か所を見つけに行きましょう" : "集計中...";
+  renderReviews();
+  showView(els.resultView);
+
+  try {
+    await window.machirogeStore.addScore({
+      clears: state.clears,
+      score: state.score,
+      photoCount: state.reviews.length,
+      durationSeconds: 30 * 60 - state.secondsLeft,
+    });
+    const percentile = await calculatePercentileFromSavedScores();
+    els.celebrationCopy.textContent = makeCelebrationCopy(percentile);
+    els.percentile.textContent =
+      state.score === 0 ? "次は最初の1か所を見つけに行きましょう" : `現在あなたは全体の上位 ${percentile}% です`;
+  } catch {
+    const percentile = calculateDemoPercentile();
+    els.celebrationCopy.textContent = makeCelebrationCopy(percentile);
+    els.percentile.textContent =
+      state.score === 0
+        ? "次は最初の1か所を見つけに行きましょう"
+        : `保存に失敗したため、デモ集計では上位 ${percentile}% です`;
+    showToast("スコア保存に失敗しました");
+  }
+}
+
+async function calculatePercentileFromSavedScores() {
+  const scores = await window.machirogeStore.listScores();
+  if (scores.length === 0) return calculateDemoPercentile();
+  if (scores.length < 3) return null;
+  const sorted = scores.map((entry) => entry.score).sort((a, b) => b - a);
+  const rank = sorted.findIndex((score) => state.score >= score) + 1;
+  const safeRank = rank > 0 ? rank : sorted.length;
+  return Math.max(1, Math.round((safeRank / sorted.length) * 100));
+}
+
+function calculateDemoPercentile() {
+  const demoParticipantScores = [20, 45, 70, 90, 115, 140, 170, 210, 260, 330];
+  const lowerScoreCount = demoParticipantScores.filter((score) => score < state.score).length;
+  const rankFromTop = demoParticipantScores.length - lowerScoreCount + 1;
+  const participantCount = demoParticipantScores.length + 1;
+  return Math.max(1, Math.round((rankFromTop / participantCount) * 100));
+}
+
+function makeCelebrationCopy(percentile) {
+  if (state.score === 0) return "今日は下見でも大丈夫。気になった場所から、また歩き出せます。";
+  if (percentile === null) return "クリアおめでとうございます！参加データが集まると、全体順位も表示されます。";
+  if (percentile <= 20) return `すばらしい！あなたは上位${percentile}%です！`;
+  if (percentile <= 50) return `クリアおめでとうございます！現在あなたは全体の上位${percentile}%です！`;
+  return `クリアお疲れ様です！現在あなたは全体の上位${percentile}%です。さらなるハイスコアを目指しましょう！`;
+}
+
+function renderReviews() {
+  if (state.reviews.length === 0) {
+    els.postedReviews.innerHTML = `<p class="empty">今回は口コミ投稿なしで終了しました。</p>`;
+    return;
+  }
+
+  els.postedReviews.innerHTML = state.reviews
+    .map(
+      (review) => `
+        <article class="posted-review">
+          <img src="${review.image}" alt="${review.checkpoint}の投稿写真" />
+          <div>
+            <strong>${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}</strong>
+            <p>${escapeHtml(review.comment)}</p>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+async function renderPublicReviews() {
+  const publicReviews = [...(await readPublicReviews()), ...sampleReviews];
+  const grouped = publicReviews.reduce((acc, review) => {
+    const prefecture = review.prefecture || "未設定";
+    acc[prefecture] = acc[prefecture] || [];
+    acc[prefecture].push(review);
+    return acc;
+  }, {});
+  const prefectures = Object.keys(grouped);
+  const selectedPrefecture = prefectures[0];
+  renderReviewTabs(prefectures, selectedPrefecture, grouped);
+  renderReviewCards(grouped[selectedPrefecture] || []);
+  lucide.createIcons();
+  showView(els.reviewsView);
+}
+
+function renderReviewTabs(prefectures, selectedPrefecture, grouped) {
+  els.reviewTabs.innerHTML = prefectures
+    .map(
+      (prefecture) => `
+        <button class="review-tab ${prefecture === selectedPrefecture ? "active" : ""}" type="button" role="tab" data-prefecture="${escapeHtml(
+          prefecture,
+        )}">
+          ${escapeHtml(prefecture)}
+        </button>
+      `,
+    )
+    .join("");
+
+  els.reviewTabs.querySelectorAll(".review-tab").forEach((tabButton) => {
+    tabButton.addEventListener("click", () => {
+      els.reviewTabs.querySelectorAll(".review-tab").forEach((button) => button.classList.remove("active"));
+      tabButton.classList.add("active");
+      renderReviewCards(grouped[tabButton.dataset.prefecture] || []);
+    });
+  });
+}
+
+function renderReviewCards(reviews) {
+  els.reviewDetail.hidden = true;
+  els.reviewDetail.innerHTML = "";
+  els.publicReviewList.hidden = false;
+  els.publicReviewList.innerHTML = reviews
+    .map(
+      (review, index) => `
+        <button class="public-review-card" type="button" data-review-index="${index}">
+          <div class="public-review-body">
+            <strong>${escapeHtml(review.catchCopy || makeCatchCopy(review.checkpoint))}</strong>
+            <p>店名: ${escapeHtml(review.placeName || review.checkpoint)}</p>
+            <p>${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}</p>
+            <p>${escapeHtml(review.comment)}</p>
+          </div>
+        </button>
+      `,
+    )
+    .join("");
+
+  els.publicReviewList.querySelectorAll(".public-review-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      renderReviewDetail(reviews[Number(card.dataset.reviewIndex)]);
+    });
+  });
+}
+
+function renderReviewDetail(review) {
+  const placeName = review.placeName || review.checkpoint;
+  const prefecture = review.prefecture || "";
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${prefecture} ${placeName}`)}`;
+  els.publicReviewList.hidden = true;
+  els.reviewDetail.hidden = false;
+  els.reviewDetail.innerHTML = `
+    <img src="${review.image}" alt="${escapeHtml(placeName)}の口コミ写真" loading="lazy" />
+    <div class="review-detail-body">
+      <button class="secondary-button" id="review-detail-back" type="button">
+        <i data-lucide="arrow-left"></i>
+        一覧へ戻る
+      </button>
+      <h3>${escapeHtml(review.catchCopy || makeCatchCopy(review.checkpoint))}</h3>
+      <p>店名: ${escapeHtml(placeName)}</p>
+      <a class="map-link" href="${mapsUrl}" target="_blank" rel="noopener">
+        <i data-lucide="map-pin"></i>
+        Google Mapsで見る
+      </a>
+      <p>${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}</p>
+      <p>${escapeHtml(review.comment)}</p>
+    </div>
+  `;
+  lucide.createIcons();
+  document.querySelector("#review-detail-back").addEventListener("click", () => {
+    els.reviewDetail.hidden = true;
+    els.publicReviewList.hidden = false;
+  });
+}
+
+function makeCatchCopy(seed) {
+  if (seed.includes("ベーカリー")) return "ふと足を止めたくなる、焼きたてのある風景";
+  if (seed.includes("看板")) return "探してみると見えてくる、まちの小さな記憶";
+  return "歩いた人だけが見つける、まちのいい表情";
+}
+
+function openMainMenu() {
+  if (typeof els.mainMenuDialog.showModal === "function") {
+    els.mainMenuDialog.showModal();
+  }
+}
+
+function closeMainMenu() {
+  els.mainMenuDialog.close();
+}
+
+function openCheckpointAdmin() {
+  if (els.mainMenuDialog.open) closeMainMenu();
+  els.checkpointPhotoPreview.removeAttribute("src");
+  els.checkpointUpload.classList.remove("has-image");
+  els.checkpointLocationStatus.textContent = state.demoLocation
+    ? "現在地未設定。位置情報を許可してください。"
+    : `現在地設定済み: ${state.userLocation.lat.toFixed(6)}, ${state.userLocation.lng.toFixed(6)}`;
+  showView(els.checkpointAdminView);
+}
+
+function restart() {
+  state.currentIndex = 0;
+  state.clears = 0;
+  state.score = 0;
+  state.reviews = [];
+  renderCheckpoint();
+  startTimer();
+  showView(els.playView);
+  setTimeout(() => state.map?.invalidateSize(), 80);
+}
+
+function showToast(message) {
+  els.toast.textContent = message;
+  els.toast.classList.add("show");
+  window.clearTimeout(showToast.timeoutId);
+  showToast.timeoutId = window.setTimeout(() => {
+    els.toast.classList.remove("show");
+  }, 2600);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => {
+    const map = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    };
+    return map[char];
+  });
+}
+
+els.moreButton.addEventListener("click", () => {
+  const isOpen = els.moreMenu.classList.toggle("open");
+  els.moreMenu.setAttribute("aria-hidden", String(!isOpen));
+});
+
+els.reportButton.addEventListener("click", reportCurrentPhoto);
+els.adminButton.addEventListener("click", openAdminLogin);
+els.closeAdminDialog.addEventListener("click", closeAdminLogin);
+els.adminLoginForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitAdminLogin();
+});
+els.adminLoginSubmit.addEventListener("click", submitAdminLogin);
+els.backToPlay.addEventListener("click", () => {
+  showView(els.playView);
+  setTimeout(() => state.map?.invalidateSize(), 80);
+});
+els.checkinButton.addEventListener("click", completeCheckpoint);
+els.refreshButton.addEventListener("click", refreshCheckpoint);
+els.mainMenuButton.addEventListener("click", openMainMenu);
+els.resultMenuButton.addEventListener("click", openMainMenu);
+els.closeMainMenu.addEventListener("click", closeMainMenu);
+els.menuRogaining.addEventListener("click", () => {
+  closeMainMenu();
+  showPlay();
+});
+els.menuReviews.addEventListener("click", () => {
+  closeMainMenu();
+  renderPublicReviews();
+});
+els.adminTestMode.addEventListener("click", startTestMode);
+els.adminCheckpointCreate.addEventListener("click", openCheckpointAdmin);
+els.menuEnd.addEventListener("click", () => {
+  closeMainMenu();
+  showHome({ saveRun: true });
+});
+els.reviewsBack.addEventListener("click", () => {
+  showHome();
+});
+els.locationRequestButton.addEventListener("click", requestLocationFromButton);
+els.restartButton.addEventListener("click", restart);
+els.homeRogaining.addEventListener("click", showPlay);
+els.homeReviews.addEventListener("click", renderPublicReviews);
+els.checkpointBack.addEventListener("click", () => showView(els.playView));
+els.useCurrentLocation.addEventListener("click", () => {
+  if (state.demoLocation) {
+    requestLocationFromButton();
+    els.checkpointLocationStatus.textContent = "位置情報を取得中です。許可後にもう一度確認してください。";
+    return;
+  }
+  els.checkpointLocationStatus.textContent = `現在地設定済み: ${state.userLocation.lat.toFixed(6)}, ${state.userLocation.lng.toFixed(6)}`;
+});
+els.checkpointForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (state.demoLocation) {
+    showToast("現在地を取得してから作成してください");
+    return;
+  }
+  const checkpoint = {
+    name: els.checkpointPlace.value.trim() || "テストチェックポイント",
+    prefecture: els.checkpointPrefecture.value,
+    placeName: els.checkpointPlace.value.trim() || "テスト地点",
+    image: els.checkpointPhotoPreview.getAttribute("src") || currentCheckpoint().image,
+    difficulty: Number(els.checkpointDifficulty.value),
+    radius: Number(els.checkpointRadius.value),
+    points: 50 + Number(els.checkpointDifficulty.value) * 20,
+    lat: state.userLocation.lat,
+    lng: state.userLocation.lng,
+  };
+  try {
+    await window.machirogeStore.addCheckpoint(checkpoint);
+    checkpoints.unshift({ ...checkpoint, id: `local-${Date.now()}` });
+    state.currentIndex = 0;
+    showToast("チェックポイントを作成しました");
+    showPlay();
+  } catch {
+    showToast("チェックポイント作成に失敗しました");
+  }
+});
+
+els.stars.forEach((star) => {
+  star.addEventListener("click", () => setRating(Number(star.dataset.rating)));
+});
+
+els.photoInput.addEventListener("change", () => {
+  const file = els.photoInput.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    els.reviewPreview.src = reader.result;
+    els.photoUpload.classList.add("has-image");
+  });
+  reader.readAsDataURL(file);
+});
+
+els.checkpointPhotoInput.addEventListener("change", () => {
+  const file = els.checkpointPhotoInput.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    els.checkpointPhotoPreview.src = reader.result;
+    els.checkpointUpload.classList.add("has-image");
+  });
+  reader.readAsDataURL(file);
+});
+
+els.reviewForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitReview(false);
+});
+
+els.skipReview.addEventListener("click", () => submitReview(true));
+els.iosInstallClose.addEventListener("click", () => {
+  els.iosInstallCard.hidden = true;
+  localStorage.setItem("machiroge-ios-install-dismissed", "1");
+});
+
+document.addEventListener("click", (event) => {
+  if (!els.moreMenu.contains(event.target) && !els.moreButton.contains(event.target)) {
+    els.moreMenu.classList.remove("open");
+    els.moreMenu.setAttribute("aria-hidden", "true");
+  }
+});
+
+window.addEventListener("load", () => {
+  lucide.createIcons();
+  renderCheckpoint();
+  syncSharedData({ force: true });
+  registerServiceWorker();
+  showIosInstallGuide();
+});
+
+window.addEventListener("online", () => {
+  syncSharedData({ force: true });
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    syncSharedData();
+  }
+});
+
+window.setInterval(() => {
+  if (document.visibilityState === "visible") {
+    syncSharedData();
+  }
+}, 30000);
+
+function showIosInstallGuide() {
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches
+    || window.navigator.standalone === true;
+  const wasDismissed = localStorage.getItem("machiroge-ios-install-dismissed") === "1";
+
+  if (isIos && !isStandalone && !wasDismissed) {
+    window.setTimeout(() => {
+      els.iosInstallCard.hidden = false;
+    }, 1200);
+  }
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("./service-worker.js").catch(() => {
+    showToast("オフライン準備に失敗しました");
+  });
+}
