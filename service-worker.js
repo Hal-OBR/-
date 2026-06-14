@@ -1,4 +1,4 @@
-const CACHE_NAME = "machiroge-pwa-v25-checkpoint-delete";
+const CACHE_NAME = "machiroge-pwa-v28-content-delete";
 const APP_SHELL = [
   "./",
   "./index.html",

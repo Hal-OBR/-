@@ -99,7 +99,21 @@ class LocalMachirogeStore {
   }
 
   async deleteCheckpoint(checkpointId) {
-    await this.updateCheckpoint(checkpointId, { status: "inactive" });
+    const currentCheckpoints = this.#read(this.checkpointKey);
+    const target = currentCheckpoints.find((checkpoint) => checkpoint.id === checkpointId);
+    const checkpoints = currentCheckpoints.filter((checkpoint) => checkpoint.id !== checkpointId);
+    localStorage.setItem(this.checkpointKey, JSON.stringify(checkpoints));
+
+    if (target?.reviewId) {
+      const reviews = this.#read(this.reviewKey).filter((review) => review.id !== target.reviewId);
+      localStorage.setItem(this.reviewKey, JSON.stringify(reviews));
+    }
+    if (target?.image) {
+      const reports = this.#read(this.reportKey).filter((report) => report.image !== target.image);
+      localStorage.setItem(this.reportKey, JSON.stringify(reports));
+    }
+
+    return { id: checkpointId, relatedReviewDeleted: Boolean(target?.reviewId) };
   }
 
   #read(key) {
@@ -283,13 +297,70 @@ class SupabaseMachirogeStore {
     if (patch.lng !== undefined) updates.lng = patch.lng;
     if (patch.status !== undefined) updates.status = patch.status;
 
-    const { error } = await this.client.from("checkpoints").update(updates).eq("id", checkpointId);
+    const { data, error } = await this.client
+      .from("checkpoints")
+      .update(updates)
+      .eq("id", checkpointId)
+      .select("id, checkpoint_name, prefecture, place_name, difficulty, radius_m, points, lat, lng, status")
+      .single();
     if (error) throw error;
+    return data;
   }
 
   async deleteCheckpoint(checkpointId) {
-    const { error } = await this.client.from("checkpoints").update({ status: "inactive" }).eq("id", checkpointId);
+    const { data: deletedContent, error } = await this.client.rpc("delete_checkpoint_content", {
+      target_checkpoint_id: checkpointId,
+    });
     if (error) throw error;
+    const deleted = Array.isArray(deletedContent) ? deletedContent[0] : deletedContent;
+    if (!deleted?.deleted_checkpoint_id) throw new Error("Checkpoint was not deleted");
+
+    let imageDeleted = false;
+    let imageCleanupFailed = false;
+    if (deleted.image_url) {
+      try {
+        const imageIsStillUsed = await this.#isImageStillUsed(deleted.image_url);
+        const storagePath = this.#getStoragePath(deleted.image_url);
+        if (!imageIsStillUsed && storagePath) {
+          const { error: storageError } = await this.client.storage.from(this.config.photoBucket).remove([storagePath]);
+          if (storageError) throw storageError;
+          imageDeleted = true;
+        }
+      } catch (cleanupError) {
+        imageCleanupFailed = true;
+        console.warn("Checkpoint image cleanup failed", cleanupError);
+      }
+    }
+
+    return {
+      id: checkpointId,
+      relatedReviewDeleted: deleted.deleted_review_id !== null,
+      imageDeleted,
+      imageCleanupFailed,
+    };
+  }
+
+  async #isImageStillUsed(imageUrl) {
+    const tables = ["reviews", "reports", "checkpoints"];
+    const results = await Promise.all(
+      tables.map((table) =>
+        this.client.from(table).select("id", { count: "exact", head: true }).eq("image_url", imageUrl),
+      ),
+    );
+    const failedResult = results.find((result) => result.error);
+    if (failedResult?.error) throw failedResult.error;
+    return results.some((result) => Number(result.count) > 0);
+  }
+
+  #getStoragePath(imageUrl) {
+    try {
+      const marker = `/storage/v1/object/public/${this.config.photoBucket}/`;
+      const pathname = new URL(imageUrl).pathname;
+      if (!pathname.includes(marker)) return null;
+      return decodeURIComponent(pathname.split(marker)[1]);
+    } catch {
+      return null;
+    }
   }
 
   async #uploadImageIfNeeded(image) {

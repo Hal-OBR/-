@@ -840,14 +840,19 @@ function renderAdminCheckpoints(adminCheckpoints) {
 
 async function deleteCheckpoint(checkpointId) {
   try {
-    await window.machirogeStore.deleteCheckpoint(checkpointId);
+    const result = await window.machirogeStore.deleteCheckpoint(checkpointId);
     const index = checkpoints.findIndex((checkpoint) => checkpoint.id === checkpointId);
     if (index >= 0) checkpoints.splice(index, 1);
     state.syncedCheckpointIds.delete(checkpointId);
     if (state.currentIndex >= checkpoints.length) state.currentIndex = 0;
     await renderAdmin();
-    showToast("チェックポイントを削除しました");
-  } catch {
+    showToast(
+      result?.imageCleanupFailed
+        ? "チェックポイントは削除しましたが、画像の削除に失敗しました"
+        : "チェックポイントを完全削除しました",
+    );
+  } catch (error) {
+    console.error("Checkpoint deletion failed", error);
     showToast("チェックポイントの削除に失敗しました");
   }
 }
@@ -869,8 +874,9 @@ async function updateCheckpoint(checkpointId, patch, successMessage) {
     }
     await renderAdmin();
     showToast(successMessage);
-  } catch {
-    showToast("チェックポイントの更新に失敗しました");
+  } catch (error) {
+    console.error("Checkpoint update failed", error);
+    showToast("保存できませんでした。Supabaseの更新権限を確認してください");
   }
 }
 
