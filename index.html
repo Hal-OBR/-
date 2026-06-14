@@ -2,7 +2,8 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no" />
     <title>まちロゲ | 探索プロトタイプ</title>
     <meta name="theme-color" content="#1f9d73" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -135,7 +136,7 @@
 
         <form class="review-form" id="review-form">
           <label class="photo-upload">
-            <input id="photo-input" type="file" accept="image/*" />
+            <input id="photo-input" type="file" accept="image/*" capture="environment" />
             <img id="review-preview" alt="" />
             <span id="upload-placeholder">
               <i data-lucide="image-plus"></i>
@@ -158,14 +159,52 @@
             <label>
               都道府県
               <select id="prefecture-input">
-                <option>東京都</option>
-                <option>神奈川県</option>
-                <option>千葉県</option>
-                <option>埼玉県</option>
-                <option>大阪府</option>
-                <option>京都府</option>
                 <option>北海道</option>
+                <option>青森県</option>
+                <option>岩手県</option>
+                <option>宮城県</option>
+                <option>秋田県</option>
+                <option>山形県</option>
+                <option>福島県</option>
+                <option>茨城県</option>
+                <option>栃木県</option>
+                <option>群馬県</option>
+                <option>埼玉県</option>
+                <option>千葉県</option>
+                <option selected>東京都</option>
+                <option>神奈川県</option>
+                <option>新潟県</option>
+                <option>富山県</option>
+                <option>石川県</option>
+                <option>福井県</option>
+                <option>山梨県</option>
+                <option>長野県</option>
+                <option>岐阜県</option>
+                <option>静岡県</option>
+                <option>愛知県</option>
+                <option>三重県</option>
+                <option>滋賀県</option>
+                <option>京都府</option>
+                <option>大阪府</option>
+                <option>兵庫県</option>
+                <option>奈良県</option>
+                <option>和歌山県</option>
+                <option>鳥取県</option>
+                <option>島根県</option>
+                <option>岡山県</option>
+                <option>広島県</option>
+                <option>山口県</option>
+                <option>徳島県</option>
+                <option>香川県</option>
+                <option>愛媛県</option>
+                <option>高知県</option>
                 <option>福岡県</option>
+                <option>佐賀県</option>
+                <option>長崎県</option>
+                <option>熊本県</option>
+                <option>大分県</option>
+                <option>宮崎県</option>
+                <option>鹿児島県</option>
                 <option>沖縄県</option>
               </select>
             </label>
@@ -335,14 +374,52 @@
             <label>
               都道府県
               <select id="checkpoint-prefecture">
-                <option>東京都</option>
-                <option>神奈川県</option>
-                <option>千葉県</option>
-                <option>埼玉県</option>
-                <option>大阪府</option>
-                <option>京都府</option>
                 <option>北海道</option>
+                <option>青森県</option>
+                <option>岩手県</option>
+                <option>宮城県</option>
+                <option>秋田県</option>
+                <option>山形県</option>
+                <option>福島県</option>
+                <option>茨城県</option>
+                <option>栃木県</option>
+                <option>群馬県</option>
+                <option>埼玉県</option>
+                <option>千葉県</option>
+                <option selected>東京都</option>
+                <option>神奈川県</option>
+                <option>新潟県</option>
+                <option>富山県</option>
+                <option>石川県</option>
+                <option>福井県</option>
+                <option>山梨県</option>
+                <option>長野県</option>
+                <option>岐阜県</option>
+                <option>静岡県</option>
+                <option>愛知県</option>
+                <option>三重県</option>
+                <option>滋賀県</option>
+                <option>京都府</option>
+                <option>大阪府</option>
+                <option>兵庫県</option>
+                <option>奈良県</option>
+                <option>和歌山県</option>
+                <option>鳥取県</option>
+                <option>島根県</option>
+                <option>岡山県</option>
+                <option>広島県</option>
+                <option>山口県</option>
+                <option>徳島県</option>
+                <option>香川県</option>
+                <option>愛媛県</option>
+                <option>高知県</option>
                 <option>福岡県</option>
+                <option>佐賀県</option>
+                <option>長崎県</option>
+                <option>熊本県</option>
+                <option>大分県</option>
+                <option>宮崎県</option>
+                <option>鹿児島県</option>
                 <option>沖縄県</option>
               </select>
             </label>
@@ -352,7 +429,7 @@
             </label>
           </div>
           <label class="photo-upload checkpoint-upload">
-            <input id="checkpoint-photo-input" type="file" accept="image/*" />
+            <input id="checkpoint-photo-input" type="file" accept="image/*" capture="environment" />
             <img id="checkpoint-photo-preview" alt="" />
             <span id="checkpoint-upload-placeholder">
               <i data-lucide="image-plus"></i>
@@ -438,6 +515,12 @@
         </button>
       </form>
     </dialog>
+
+    <aside class="ios-install-card" id="ios-install-card" hidden aria-label="iPhoneに追加">
+      <button class="ios-install-close" id="ios-install-close" type="button" aria-label="閉じる">×</button>
+      <strong>iPhoneにアプリとして追加</strong>
+      <p>Safariの共有ボタンから「ホーム画面に追加」を選ぶと、全画面で起動できます。</p>
+    </aside>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

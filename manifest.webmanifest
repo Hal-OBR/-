@@ -2,12 +2,14 @@
   "name": "まちロゲ",
   "short_name": "まちロゲ",
   "description": "口コミ写真をきっかけに、まちを歩いて探すロゲイニングアプリ。",
+  "id": "./",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1f9d73",
   "orientation": "portrait",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "./icons/icon-192.png",

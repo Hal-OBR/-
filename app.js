@@ -83,6 +83,8 @@ const state = {
   map: null,
   userMarker: null,
   rangeCircle: null,
+  syncedCheckpointIds: new Set(),
+  lastSharedSyncAt: 0,
 };
 
 const ADMIN_PASSWORD = "machiroge";
@@ -171,6 +173,8 @@ const els = {
   checkpointLocationStatus: document.querySelector("#checkpoint-location-status"),
   adminTestMode: document.querySelector("#admin-test-mode"),
   adminCheckpointCreate: document.querySelector("#admin-checkpoint-create"),
+  iosInstallCard: document.querySelector("#ios-install-card"),
+  iosInstallClose: document.querySelector("#ios-install-close"),
 };
 
 function currentCheckpoint() {
@@ -236,11 +240,24 @@ async function saveRunScoreToHome() {
 async function loadSavedCheckpoints() {
   try {
     const saved = await window.machirogeStore.listCheckpoints();
+    const savedIds = new Set(saved.map((checkpoint) => checkpoint.id));
+    for (let index = checkpoints.length - 1; index >= 0; index -= 1) {
+      const checkpoint = checkpoints[index];
+      if (state.syncedCheckpointIds.has(checkpoint.id) && !savedIds.has(checkpoint.id)) {
+        checkpoints.splice(index, 1);
+      }
+    }
     saved.forEach((checkpoint) => {
-      if (!checkpoints.some((existing) => existing.id === checkpoint.id)) {
+      const existing = checkpoints.find((item) => item.id === checkpoint.id);
+      if (existing) {
+        Object.assign(existing, checkpoint);
+      } else {
         checkpoints.unshift(checkpoint);
       }
     });
+    state.syncedCheckpointIds = savedIds;
+    state.lastSharedSyncAt = Date.now();
+    if (state.currentIndex >= checkpoints.length) state.currentIndex = 0;
   } catch {
     showToast("チェックポイントの読み込みに失敗しました");
   }
@@ -254,6 +271,16 @@ function renderCheckpoint() {
   updateTimer();
   updateDistanceState();
   updateMap();
+}
+
+async function syncSharedData({ force = false } = {}) {
+  if (!navigator.onLine) return;
+  if (!force && Date.now() - state.lastSharedSyncAt < 15000) return;
+
+  await loadSavedCheckpoints();
+  if (els.reviewsView.classList.contains("active")) {
+    await renderPublicReviews();
+  }
 }
 
 function startTimer() {
@@ -1296,6 +1323,10 @@ els.reviewForm.addEventListener("submit", (event) => {
 });
 
 els.skipReview.addEventListener("click", () => submitReview(true));
+els.iosInstallClose.addEventListener("click", () => {
+  els.iosInstallCard.hidden = true;
+  localStorage.setItem("machiroge-ios-install-dismissed", "1");
+});
 
 document.addEventListener("click", (event) => {
   if (!els.moreMenu.contains(event.target) && !els.moreButton.contains(event.target)) {
@@ -1307,9 +1338,40 @@ document.addEventListener("click", (event) => {
 window.addEventListener("load", () => {
   lucide.createIcons();
   renderCheckpoint();
-  loadSavedCheckpoints();
+  syncSharedData({ force: true });
   registerServiceWorker();
+  showIosInstallGuide();
 });
+
+window.addEventListener("online", () => {
+  syncSharedData({ force: true });
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    syncSharedData();
+  }
+});
+
+window.setInterval(() => {
+  if (document.visibilityState === "visible") {
+    syncSharedData();
+  }
+}, 30000);
+
+function showIosInstallGuide() {
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches
+    || window.navigator.standalone === true;
+  const wasDismissed = localStorage.getItem("machiroge-ios-install-dismissed") === "1";
+
+  if (isIos && !isStandalone && !wasDismissed) {
+    window.setTimeout(() => {
+      els.iosInstallCard.hidden = false;
+    }, 1200);
+  }
+}
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;

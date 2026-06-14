@@ -23,6 +23,10 @@
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
   color: var(--ink);
   background:
     linear-gradient(135deg, rgba(31, 157, 115, 0.15), transparent 34%),
@@ -49,6 +53,7 @@ button {
 .app-shell {
   width: min(100%, 520px);
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
   background: var(--panel);
   box-shadow: var(--shadow);
@@ -57,7 +62,12 @@ button {
 .screen {
   display: none;
   min-height: 100vh;
-  padding: 18px;
+  min-height: 100dvh;
+  padding:
+    calc(18px + env(safe-area-inset-top))
+    calc(18px + env(safe-area-inset-right))
+    calc(18px + env(safe-area-inset-bottom))
+    calc(18px + env(safe-area-inset-left));
 }
 
 .screen.active {
@@ -1053,7 +1063,7 @@ textarea:focus,
 .toast {
   position: fixed;
   left: 50%;
-  bottom: 18px;
+  bottom: calc(18px + env(safe-area-inset-bottom));
   z-index: 1000;
   max-width: min(92vw, 420px);
   transform: translateX(-50%) translateY(120%);
@@ -1069,9 +1079,63 @@ textarea:focus,
   transform: translateX(-50%) translateY(0);
 }
 
+.ios-install-card {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  left: max(12px, env(safe-area-inset-left));
+  z-index: 1100;
+  max-width: 496px;
+  margin: 0 auto;
+  padding: 16px 44px 16px 16px;
+  border: 1px solid rgba(31, 157, 115, 0.28);
+  border-radius: 14px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 48px rgba(31, 41, 51, 0.2);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.ios-install-card strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.ios-install-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ios-install-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+}
+
+@media (display-mode: standalone) {
+  .ios-install-card {
+    display: none !important;
+  }
+}
+
 @media (max-width: 380px) {
   .screen {
-    padding: 14px;
+    padding:
+      calc(14px + env(safe-area-inset-top))
+      calc(14px + env(safe-area-inset-right))
+      calc(14px + env(safe-area-inset-bottom))
+      calc(14px + env(safe-area-inset-left));
   }
 
   h1,
