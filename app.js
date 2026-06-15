@@ -83,8 +83,12 @@ const state = {
   map: null,
   userMarker: null,
   rangeCircle: null,
+  checkpointMarker: null,
   syncedCheckpointIds: new Set(),
   lastSharedSyncAt: 0,
+  reviewSubmitting: false,
+  checkinLocation: null,
+  reviewLocationPromise: null,
 };
 
 const ADMIN_PASSWORD = "machiroge";
@@ -136,10 +140,12 @@ const els = {
   reviewTabs: document.querySelector("#review-tabs"),
   reviewDetail: document.querySelector("#review-detail"),
   reviewForm: document.querySelector("#review-form"),
+  reviewSubmit: document.querySelector("#review-submit"),
   photoInput: document.querySelector("#photo-input"),
   reviewPreview: document.querySelector("#review-preview"),
   photoUpload: document.querySelector(".photo-upload"),
   prefectureInput: document.querySelector("#prefecture-input"),
+  municipalityInput: document.querySelector("#municipality-input"),
   placeInput: document.querySelector("#place-input"),
   catchCopyInput: document.querySelector("#catch-copy-input"),
   stars: document.querySelectorAll("#stars button"),
@@ -186,6 +192,9 @@ function showView(view) {
     (screen) => screen.classList.remove("active"),
   );
   view.classList.add("active");
+  if (view !== els.homeView) {
+    els.iosInstallCard.hidden = true;
+  }
 }
 
 function showPlay() {
@@ -321,12 +330,13 @@ function initMap() {
 function updateMap() {
   if (!state.map || !window.L) return;
   const point = currentCheckpoint();
-  const center = [state.userLocation.lat, state.userLocation.lng];
+  const checkpointCenter = [Number(point.lat), Number(point.lng)];
+  const userCenter = [state.userLocation.lat, state.userLocation.lng];
 
-  state.map.setView(center, point.radius >= 800 ? 14 : 15);
+  state.map.setView(checkpointCenter, point.radius >= 800 ? 14 : 15);
 
   if (!state.userMarker) {
-    state.userMarker = L.circleMarker(center, {
+    state.userMarker = L.circleMarker(userCenter, {
       radius: 8,
       color: "#ffffff",
       weight: 3,
@@ -334,11 +344,23 @@ function updateMap() {
       fillOpacity: 1,
     }).addTo(state.map);
   } else {
-    state.userMarker.setLatLng(center);
+    state.userMarker.setLatLng(userCenter);
+  }
+
+  if (!state.checkpointMarker) {
+    state.checkpointMarker = L.circleMarker(checkpointCenter, {
+      radius: 7,
+      color: "#13795a",
+      weight: 3,
+      fillColor: "#ffffff",
+      fillOpacity: 1,
+    }).addTo(state.map);
+  } else {
+    state.checkpointMarker.setLatLng(checkpointCenter);
   }
 
   if (!state.rangeCircle) {
-    state.rangeCircle = L.circle(center, {
+    state.rangeCircle = L.circle(checkpointCenter, {
       radius: point.radius,
       color: "#1f9d73",
       weight: 2,
@@ -346,7 +368,7 @@ function updateMap() {
       fillOpacity: 0.13,
     }).addTo(state.map);
   } else {
-    state.rangeCircle.setLatLng(center);
+    state.rangeCircle.setLatLng(checkpointCenter);
     state.rangeCircle.setRadius(point.radius);
   }
 }
@@ -407,11 +429,15 @@ function completeCheckpoint() {
   }
 
   const point = currentCheckpoint();
+  state.checkinLocation = state.demoLocation
+    ? { lat: Number(point.lat), lng: Number(point.lng) }
+    : { lat: state.userLocation.lat, lng: state.userLocation.lng };
   state.clears += 1;
   state.score += point.points + point.difficulty * 10;
   window.clearInterval(state.timerId);
   resetReviewForm();
   showView(els.reviewView);
+  state.reviewLocationPromise = populateReviewLocation();
 }
 
 function refreshCheckpoint() {
@@ -945,10 +971,27 @@ function resetReviewForm() {
   els.reviewPreview.removeAttribute("src");
   els.photoUpload.classList.remove("has-image");
   els.prefectureInput.value = currentCheckpoint().prefecture || "東京都";
-  els.placeInput.value = currentCheckpoint().placeName || "";
+  els.municipalityInput.value = "現在地から取得中...";
+  els.placeInput.value = "";
   els.catchCopyInput.value = "";
   els.commentInput.value = "";
   setRating(3);
+}
+
+async function populateReviewLocation() {
+  const location = state.checkinLocation || {
+    lat: Number(currentCheckpoint().lat),
+    lng: Number(currentCheckpoint().lng),
+  };
+  const address = await getAddressFromCoordinates(location);
+  els.prefectureInput.value = address?.prefecture || currentCheckpoint().prefecture || "未設定";
+  els.municipalityInput.value = address?.municipality || "市区町村を取得できませんでした";
+  return {
+    lat: location.lat,
+    lng: location.lng,
+    prefecture: els.prefectureInput.value,
+    municipality: address?.municipality || "",
+  };
 }
 
 function setRating(value) {
@@ -959,34 +1002,51 @@ function setRating(value) {
 }
 
 async function submitReview(skip = false) {
+  if (state.reviewSubmitting) return;
+  state.reviewSubmitting = true;
+  els.reviewSubmit.disabled = true;
+  els.skipReview.disabled = true;
+  const originalSubmitLabel = els.reviewSubmit.innerHTML;
+  els.reviewSubmit.textContent = skip ? "次へ移動中..." : "投稿中...";
+
   const previewSrc = els.reviewPreview.getAttribute("src");
   const point = currentCheckpoint();
-  if (!skip) {
-    const review = {
-      checkpoint: point.name,
-      prefecture: els.prefectureInput.value,
-      placeName: els.placeInput.value.trim() || point.placeName || point.name,
-      catchCopy: els.catchCopyInput.value.trim() || makeCatchCopy(point.name),
-      rating: state.rating,
-      comment: els.commentInput.value.trim() || "口コミを投稿しました",
-      image: previewSrc || point.image,
-      lat: point.lat,
-      lng: point.lng,
-    };
-    state.reviews.push(review);
-    try {
+  try {
+    const location = state.reviewLocationPromise
+      ? await state.reviewLocationPromise
+      : await populateReviewLocation();
+    if (!skip) {
+      const review = {
+        checkpoint: point.name,
+        prefecture: location.prefecture,
+        municipality: location.municipality,
+        placeName: els.placeInput.value.trim() || point.placeName || point.name,
+        catchCopy: els.catchCopyInput.value.trim() || makeCatchCopy(point.name),
+        rating: state.rating,
+        comment: els.commentInput.value.trim() || "口コミを投稿しました",
+        image: previewSrc || point.image,
+        lat: location.lat,
+        lng: location.lng,
+      };
       await savePublicReviews(review);
-    } catch {
-      showToast("口コミの保存に失敗しました");
-      return;
+      state.reviews.push(review);
     }
-  }
 
-  state.currentIndex = selectNextCheckpointIndex();
-  renderCheckpoint();
-  startTimer();
-  showView(els.playView);
-  setTimeout(() => state.map?.invalidateSize(), 80);
+    state.currentIndex = selectNextCheckpointIndex();
+    renderCheckpoint();
+    startTimer();
+    showView(els.playView);
+    setTimeout(() => state.map?.invalidateSize(), 80);
+  } catch (error) {
+    console.error("Review submission failed", error);
+    showToast("口コミの保存に失敗しました。通信状態を確認してください");
+  } finally {
+    state.reviewSubmitting = false;
+    els.reviewSubmit.disabled = false;
+    els.skipReview.disabled = false;
+    els.reviewSubmit.innerHTML = originalSubmitLabel;
+    lucide.createIcons();
+  }
 }
 
 async function savePublicReviews(review) {
@@ -1130,6 +1190,7 @@ function renderReviewCards(reviews) {
           <div class="public-review-body">
             <strong>${escapeHtml(review.catchCopy || makeCatchCopy(review.checkpoint))}</strong>
             <p>店名: ${escapeHtml(review.placeName || review.checkpoint)}</p>
+            <p>${escapeHtml([review.prefecture, review.municipality].filter(Boolean).join(" "))}</p>
             <p>${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}</p>
             <p>${escapeHtml(review.comment)}</p>
           </div>
@@ -1148,7 +1209,12 @@ function renderReviewCards(reviews) {
 function renderReviewDetail(review) {
   const placeName = review.placeName || review.checkpoint;
   const prefecture = review.prefecture || "";
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${prefecture} ${placeName}`)}`;
+  const municipality = review.municipality || "";
+  const hasCoordinates = Number.isFinite(Number(review.lat)) && Number.isFinite(Number(review.lng));
+  const mapsQuery = hasCoordinates
+    ? `${Number(review.lat)},${Number(review.lng)}`
+    : `${prefecture} ${municipality} ${placeName}`;
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`;
   els.publicReviewList.hidden = true;
   els.reviewDetail.hidden = false;
   els.reviewDetail.innerHTML = `
@@ -1160,6 +1226,7 @@ function renderReviewDetail(review) {
       </button>
       <h3>${escapeHtml(review.catchCopy || makeCatchCopy(review.checkpoint))}</h3>
       <p>店名: ${escapeHtml(placeName)}</p>
+      <p>${escapeHtml([prefecture, municipality].filter(Boolean).join(" "))}</p>
       <a class="map-link" href="${mapsUrl}" target="_blank" rel="noopener">
         <i data-lucide="map-pin"></i>
         Google Mapsで見る
@@ -1191,7 +1258,7 @@ function closeMainMenu() {
   els.mainMenuDialog.close();
 }
 
-function openCheckpointAdmin() {
+async function openCheckpointAdmin() {
   if (els.mainMenuDialog.open) closeMainMenu();
   els.checkpointPhotoPreview.removeAttribute("src");
   els.checkpointUpload.classList.remove("has-image");
@@ -1199,6 +1266,44 @@ function openCheckpointAdmin() {
     ? "現在地未設定。位置情報を許可してください。"
     : `現在地設定済み: ${state.userLocation.lat.toFixed(6)}, ${state.userLocation.lng.toFixed(6)}`;
   showView(els.checkpointAdminView);
+  if (!state.demoLocation) {
+    const prefecture = await getPrefectureFromCoordinates(state.userLocation);
+    if (prefecture) els.checkpointPrefecture.value = prefecture;
+  }
+}
+
+async function getAddressFromCoordinates({ lat, lng }) {
+  try {
+    const url = new URL("https://nominatim.openstreetmap.org/reverse");
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("lat", String(lat));
+    url.searchParams.set("lon", String(lng));
+    url.searchParams.set("zoom", "8");
+    url.searchParams.set("accept-language", "ja");
+    const response = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return {
+      prefecture: data.address?.province || data.address?.state || data.address?.region || "",
+      municipality:
+        data.address?.city ||
+        data.address?.town ||
+        data.address?.village ||
+        data.address?.municipality ||
+        data.address?.county ||
+        "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getPrefectureFromCoordinates(location) {
+  const address = await getAddressFromCoordinates(location);
+  const prefecture = address?.prefecture;
+  return Array.from(els.checkpointPrefecture.options).some((option) => option.value === prefecture)
+    ? prefecture
+    : null;
 }
 
 function restart() {

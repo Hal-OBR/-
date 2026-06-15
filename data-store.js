@@ -154,11 +154,14 @@ class SupabaseMachirogeStore {
       id: review.id,
       checkpoint: review.checkpoint_name,
       prefecture: review.prefecture,
+      municipality: review.municipality,
       placeName: review.place_name,
       catchCopy: review.catch_copy,
       rating: review.rating,
       comment: review.comment,
       image: review.image_url,
+      lat: review.lat,
+      lng: review.lng,
       createdAt: review.created_at,
     }));
   }
@@ -168,11 +171,14 @@ class SupabaseMachirogeStore {
     const { error } = await this.client.from("reviews").insert({
       checkpoint_name: review.checkpoint,
       prefecture: review.prefecture,
+      municipality: review.municipality,
       place_name: review.placeName,
       catch_copy: review.catchCopy,
       rating: review.rating,
       comment: review.comment,
       image_url: imageUrl,
+      lat: review.lat,
+      lng: review.lng,
       anonymous_user_id: this.userId,
       status: "public",
     });

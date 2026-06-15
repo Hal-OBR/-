@@ -389,6 +389,13 @@ button svg,
   gap: 8px;
   border-radius: 8px;
   font-weight: 700;
+  touch-action: manipulation;
+}
+
+#review-view .actions {
+  position: relative;
+  z-index: 2;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .primary-button {
@@ -512,6 +519,17 @@ button svg,
 .review-meta-grid label {
   display: grid;
   gap: 8px;
+}
+
+.review-meta-grid .store-name-field {
+  grid-column: 1 / -1;
+}
+
+.review-meta-grid input[readonly],
+.review-meta-grid select:disabled {
+  color: var(--ink);
+  background: #f2f5f8;
+  opacity: 1;
 }
 
 .review-meta-grid input,

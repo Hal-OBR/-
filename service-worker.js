@@ -1,4 +1,4 @@
-const CACHE_NAME = "machiroge-pwa-v28-content-delete";
+const CACHE_NAME = "machiroge-pwa-v30-review-location";
 const APP_SHELL = [
   "./",
   "./index.html",
