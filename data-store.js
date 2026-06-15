@@ -12,6 +12,14 @@ class LocalMachirogeStore {
     return this.#read(this.reviewKey).filter((review) => (review.status || "public") === "public");
   }
 
+  async listReviewCandidates() {
+    return this.#read(this.reviewKey).filter(
+      (review) =>
+        (review.status || "public") === "public" &&
+        (review.candidateStatus || "available") === "available",
+    );
+  }
+
   async addReview(review) {
     const reviews = this.#read(this.reviewKey);
     reviews.unshift({
@@ -26,6 +34,13 @@ class LocalMachirogeStore {
   async updateReviewStatus(reviewId, status) {
     const reviews = this.#read(this.reviewKey).map((review) =>
       review.id === reviewId ? { ...review, status, updatedAt: new Date().toISOString() } : review,
+    );
+    localStorage.setItem(this.reviewKey, JSON.stringify(reviews));
+  }
+
+  async updateReviewCandidateStatus(reviewId, candidateStatus) {
+    const reviews = this.#read(this.reviewKey).map((review) =>
+      review.id === reviewId ? { ...review, candidateStatus } : review,
     );
     localStorage.setItem(this.reviewKey, JSON.stringify(reviews));
   }
@@ -166,6 +181,30 @@ class SupabaseMachirogeStore {
     }));
   }
 
+  async listReviewCandidates() {
+    const { data, error } = await this.client
+      .from("reviews")
+      .select("*")
+      .eq("status", "public")
+      .eq("candidate_status", "available")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data.map((review) => ({
+      id: review.id,
+      checkpoint: review.checkpoint_name,
+      prefecture: review.prefecture,
+      municipality: review.municipality,
+      placeName: review.place_name,
+      catchCopy: review.catch_copy,
+      rating: review.rating,
+      comment: review.comment,
+      image: review.image_url,
+      lat: review.lat,
+      lng: review.lng,
+      createdAt: review.created_at,
+    }));
+  }
+
   async addReview(review) {
     const imageUrl = await this.#uploadImageIfNeeded(review.image);
     const { error } = await this.client.from("reviews").insert({
@@ -188,6 +227,15 @@ class SupabaseMachirogeStore {
   async updateReviewStatus(reviewId, status) {
     const { error } = await this.client.from("reviews").update({ status }).eq("id", reviewId);
     if (error) throw error;
+  }
+
+  async updateReviewCandidateStatus(reviewId, candidateStatus) {
+    const { data, error } = await this.client.rpc("set_review_candidate_status", {
+      target_review_id: reviewId,
+      new_status: candidateStatus,
+    });
+    if (error) throw error;
+    if (!data) throw new Error("Review candidate status was not updated");
   }
 
   async listReports() {

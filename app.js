@@ -347,16 +347,9 @@ function updateMap() {
     state.userMarker.setLatLng(userCenter);
   }
 
-  if (!state.checkpointMarker) {
-    state.checkpointMarker = L.circleMarker(checkpointCenter, {
-      radius: 7,
-      color: "#13795a",
-      weight: 3,
-      fillColor: "#ffffff",
-      fillOpacity: 1,
-    }).addTo(state.map);
-  } else {
-    state.checkpointMarker.setLatLng(checkpointCenter);
+  if (state.checkpointMarker) {
+    state.map.removeLayer(state.checkpointMarker);
+    state.checkpointMarker = null;
   }
 
   if (!state.rangeCircle) {
@@ -579,10 +572,19 @@ async function readAdminCheckpoints() {
   }
 }
 
+async function readReviewCandidates() {
+  try {
+    return await window.machirogeStore.listReviewCandidates();
+  } catch {
+    showToast("口コミ候補の読み込みに失敗しました");
+    return [];
+  }
+}
+
 async function renderAdmin() {
   const reports = await readReports();
   const adminCheckpoints = await readAdminCheckpoints();
-  const reviewCandidates = await readPublicReviews();
+  const reviewCandidates = await readReviewCandidates();
   const availableReviewCandidates = reviewCandidates.filter(
     (review) => !adminCheckpoints.some((checkpoint) => checkpoint.reviewId && review.id && checkpoint.reviewId === review.id),
   );
@@ -728,12 +730,13 @@ async function adoptReviewAsCheckpoint(review, options) {
     difficulty: options.difficulty,
     radius: options.radius,
     points: 50 + options.difficulty * 20,
-    lat: state.userLocation.lat,
-    lng: state.userLocation.lng,
+    lat: Number.isFinite(Number(review.lat)) ? Number(review.lat) : state.userLocation.lat,
+    lng: Number.isFinite(Number(review.lng)) ? Number(review.lng) : state.userLocation.lng,
   };
 
   try {
     await window.machirogeStore.addCheckpoint(checkpoint);
+    await window.machirogeStore.updateReviewCandidateStatus(review.id, "adopted");
     checkpoints.unshift({
       ...checkpoint,
       id: `review-${review.id || Date.now()}`,
@@ -748,10 +751,11 @@ async function adoptReviewAsCheckpoint(review, options) {
 
 async function hideReviewCandidate(review) {
   try {
-    await window.machirogeStore.updateReviewStatus(review.id, "hidden");
+    await window.machirogeStore.updateReviewCandidateStatus(review.id, "excluded");
     await renderAdmin();
-    showToast("口コミ候補から外しました");
-  } catch {
+    showToast("口コミを候補から外しました");
+  } catch (error) {
+    console.error("Review candidate exclusion failed", error);
     showToast("口コミ候補の除外に失敗しました");
   }
 }
