@@ -92,6 +92,7 @@ const state = {
 };
 
 const ADMIN_PASSWORD = "machiroge";
+const NEARBY_CHECKPOINT_DISTANCE_M = 10_000;
 
 const els = {
   homeView: document.querySelector("#home-view"),
@@ -473,13 +474,21 @@ function selectNextCheckpointIndex() {
     .map((checkpoint, index) => ({
       index,
       distance: distanceInMeters(state.userLocation, checkpoint),
-      difficulty: checkpoint.difficulty,
     }))
-    .filter((candidate) => candidate.index !== state.currentIndex)
-    .filter((candidate) => state.demoLocation || (candidate.distance >= 300 && candidate.distance <= 900))
-    .sort((a, b) => b.difficulty - a.difficulty || a.distance - b.distance);
+    .filter((candidate) => candidate.index !== state.currentIndex);
 
-  if (candidates.length > 0) return candidates[0].index;
+  const nearbyCandidates = state.demoLocation
+    ? candidates
+    : candidates.filter((candidate) => candidate.distance <= NEARBY_CHECKPOINT_DISTANCE_M);
+  const candidatePool = nearbyCandidates.length > 0 ? nearbyCandidates : candidates;
+
+  candidatePool.sort((a, b) => {
+    const aOffset = (a.index - state.currentIndex + checkpoints.length) % checkpoints.length;
+    const bOffset = (b.index - state.currentIndex + checkpoints.length) % checkpoints.length;
+    return aOffset - bOffset;
+  });
+
+  if (candidatePool.length > 0) return candidatePool[0].index;
   return (state.currentIndex + 1) % checkpoints.length;
 }
 

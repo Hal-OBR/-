@@ -18,7 +18,7 @@
       integrity="sha256-p4NxAoJBhIINfQ0twYn4tc4Q0q8ztdRloM5A6J/6zFw="
       crossorigin=""
     />
-    <link rel="stylesheet" href="./styles.css?v=tokyo-tutorial-1" />
+    <link rel="stylesheet" href="./styles.css?v=nearby-cycle-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -537,6 +537,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./config.js?v=range-candidate-fix-1"></script>
     <script src="./data-store.js?v=range-candidate-fix-1"></script>
-    <script src="./app.js?v=tokyo-tutorial-1"></script>
+    <script src="./app.js?v=nearby-cycle-1"></script>
   </body>
 </html>
